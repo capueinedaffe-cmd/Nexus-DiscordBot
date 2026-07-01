@@ -1,0 +1,6 @@
+# Nunca subir el token ni archivos de entorno
+.env
+__pycache__/
+*.pyc
+*.json
+!package.json
