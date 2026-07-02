@@ -116,16 +116,18 @@ class StatPanelView(discord.ui.View):
             )
             return
 
-        character = Character(
-            owner_id=self.owner_id,
-            name=self.name,
-            is_npc=self.is_npc,
-            vit_max=self.values["vit"],
-            mana_max=self.values["mana"],
-            fue=self.values["fue"],
-            res=self.values["res"],
-            agi=self.values["agi"],
-        )
+        character = Character({
+            "id": None,                     # La BD asignará el ID automáticamente
+            "owner_id": self.owner_id,
+            "name": self.name,
+            "is_npc": self.is_npc,
+            "level": 1,                     # Siempre empieza en nivel 1
+            "vit_max": self.values["vit"],
+            "mana_max": self.values["mana"],
+            "fue": self.values["fue"],
+            "res": self.values["res"],
+            "agi": self.values["agi"],
+        })
         await add_character(character)
 
         for child in self.children:
