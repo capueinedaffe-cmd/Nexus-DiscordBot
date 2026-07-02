@@ -1,0 +1,13 @@
+{
+  "MAX_CHARACTERS_PER_USER": 3,
+  "TOTAL_POINTS": 15,
+  "STAT_CONFIG": {
+    "vit": {"label": "VIT (HP)", "base": 10, "max": 30},
+    "mana": {"label": "MANA", "base": 5, "max": 20},
+    "fue": {"label": "FUE", "base": 1, "max": 10},
+    "res": {"label": "RES", "base": 1, "max": 10},
+    "agi": {"label": "AGI", "base": 1, "max": 10}
+  },
+  "TURN_TIMEOUT_SECONDS": 600,
+  "LOBBY_TIMEOUT_SECONDS": 300
+}
