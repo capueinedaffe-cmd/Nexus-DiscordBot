@@ -17,9 +17,11 @@ class Character:
         self.level = row["level"]
         self.vit_max = row["vit_max"]
         self.mana_max = row["mana_max"]
+        self.ph = row["ph"]
         self.fue = row["fue"]
         self.res = row["res"]
         self.agi = row["agi"]
+        self.elemento = row["elemento"]
 
     @property
     def ph_max(self):
