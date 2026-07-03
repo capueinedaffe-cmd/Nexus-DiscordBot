@@ -10,10 +10,14 @@ de puntos para repartir. El botón ↻ cambia qué estadística está selecciona
 Comandos:
   /crear_personaje      → abierto a todos, crea un "Personaje" (PJ)
   /creacion_avanzada    → solo OWNER_ID, permite elegir Personaje o NPC
+  /crear_transformacion → crea transformaciones para personajes
 """
 
 import discord
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 from discord import app_commands
 with open("config.json") as f:
@@ -237,30 +241,43 @@ class NameModal(discord.ui.Modal, title="Nombre del personaje"):
 # ── Autocompletado ───────────────────────────────────────────
 
 async def mi_personaje_autocomplete(interaction: discord.Interaction, current: str):
-    chars = await get_user_characters(interaction.user.id, include_npc=True)
-    return [
-        app_commands.Choice(name=c.name, value=c.name)
-        for c in chars if current.lower() in c.name.lower()
-    ][:25]
+    try:
+        chars = await get_user_characters(interaction.user.id, include_npc=True)
+        return [
+            app_commands.Choice(name=c.name, value=c.name)
+            for c in chars if current.lower() in c.name.lower()
+        ][:25]
+    except Exception as e:
+        logger.error(f"Error en autocompletado: {e}")
+        return []
 
 # ── Registro de comandos ───────────────────────────────────────────
 def setup_character_commands(bot):
+    logger.info("Registrando comandos de character_creation...")
 
     @bot.tree.command(name="crear_personaje", description="Crea un nuevo personaje (máximo 3 por usuario)")
     async def crear_personaje(interaction: discord.Interaction):
-        if await count_player_characters(interaction.user.id) >= MAX_CHARACTERS_PER_USER:
-            await interaction.response.send_message(
-                f"Ya tenés el máximo de {MAX_CHARACTERS_PER_USER} personajes.",
-                ephemeral=True,
-            )
-            return
-        await interaction.response.send_modal(NameModal(advanced=False))
+        try:
+            if await count_player_characters(interaction.user.id) >= MAX_CHARACTERS_PER_USER:
+                await interaction.response.send_message(
+                    f"Ya tenés el máximo de {MAX_CHARACTERS_PER_USER} personajes.",
+                    ephemeral=True,
+                )
+                return
+            await interaction.response.send_modal(NameModal(advanced=False))
+        except Exception as e:
+            logger.error(f"Error en crear_personaje: {e}", exc_info=True)
+            await interaction.response.send_message(f"Error: {e}", ephemeral=True)
 
     @bot.tree.command(name="creacion_avanzada", description="[Solo owner] Crea un Personaje o un NPC")
     async def creacion_avanzada(interaction: discord.Interaction):
-        if not await owner_check_direct(interaction):
-            return
-        await interaction.response.send_modal(NameModal(advanced=True))
+        try:
+            if not await owner_check_direct(interaction):
+                return
+            await interaction.response.send_modal(NameModal(advanced=True))
+        except Exception as e:
+            logger.error(f"Error en creacion_avanzada: {e}", exc_info=True)
+            await interaction.response.send_message(f"Error: {e}", ephemeral=True)
 
     @bot.tree.command(name="crear_transformacion", description="Define una transformación para uno de tus personajes")
     @app_commands.describe(
@@ -274,32 +291,54 @@ def setup_character_commands(bot):
         condicion="Condición narrativa/mecánica para poder activarla",
     )
     @app_commands.autocomplete(personaje=mi_personaje_autocomplete)
-    async def crear_transformacion(interaction: discord.Interaction, personaje: str,
-                                    nombre: str, bonus_vit: int, bonus_mana: int,
-                                    bonus_fue: int, bonus_res: int, bonus_agi: int,
-                                    condicion: str):
-        char = await get_character(interaction.user.id, personaje)
-        if not char:
-            await interaction.response.send_message(
-                f"No tenés un personaje llamado **{personaje}**.", ephemeral=True
+    async def crear_transformacion(
+        interaction: discord.Interaction,
+        personaje: str,
+        nombre: str,
+        bonus_vit: int,
+        bonus_mana: int,
+        bonus_fue: int,
+        bonus_res: int,
+        bonus_agi: int,
+        condicion: str,
+    ):
+        try:
+            char = await get_character(interaction.user.id, personaje)
+            if not char:
+                await interaction.response.send_message(
+                    f"No tenés un personaje llamado **{personaje}**.", ephemeral=True
+                )
+                return
+
+            bonuses = {
+                "vit": bonus_vit,
+                "mana": bonus_mana,
+                "fue": bonus_fue,
+                "res": bonus_res,
+                "agi": bonus_agi,
+            }
+            total = sum(bonuses.values())
+            if total <= 0:
+                await interaction.response.send_message(
+                    "La transformación necesita otorgar al menos +1 en alguna estadística.",
+                    ephemeral=True,
+                )
+                return
+
+            # El elemento de la transformación es siempre el elemento innato del personaje.
+            ph_drain = max(1, round(total / 3))
+
+            await add_transformation(
+                char.id, nombre, char.elemento, bonuses, ph_drain, condicion
             )
-            return
 
-        bonuses = {"vit": bonus_vit, "mana": bonus_mana, "fue": bonus_fue, "res": bonus_res, "agi": bonus_agi}
-        total = sum(bonuses.values())
-        if total <= 0:
             await interaction.response.send_message(
-                "La transformación necesita otorgar al menos +1 en alguna estadística.", ephemeral=True
+                f"✅ Transformación **{nombre}** creada para **{char.name}** "
+                f"(elemento {char.elemento}, drena {ph_drain} PH y 1 MANA por turno mientras esté activa).",
+                ephemeral=True,
             )
-            return
+        except Exception as e:
+            logger.error(f"Error en crear_transformacion: {e}", exc_info=True)
+            await interaction.response.send_message(f"Error: {e}", ephemeral=True)
 
-        # El elemento de la transformación es siempre el elemento innato del personaje.
-        ph_drain = max(1, round(total / 3))
-
-        await add_transformation(char.id, nombre, char.elemento, bonuses, ph_drain, condicion)
-
-        await interaction.response.send_message(
-            f"✅ Transformación **{nombre}** creada para **{char.name}** "
-            f"(elemento {char.elemento}, drena {ph_drain} PH y 1 MANA por turno mientras esté activa).",
-            ephemeral=True,
-        )
+    logger.info("✅ Comandos de character_creation registrados correctamente")
