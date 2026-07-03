@@ -10,7 +10,15 @@ configurada en Railway (nunca escrita directamente en el código).
 
 import os
 import discord
+import logging
 from discord.ext import commands
+
+# ── Configurar logging ─────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 from database import init_db
 from character_creation import setup_character_commands
@@ -37,8 +45,10 @@ async def on_ready():
     try:
         synced = await bot.tree.sync()
         print(f"✅ {len(synced)} slash commands sincronizados")
+        for cmd in bot.tree.get_commands():
+            logger.info(f"  - {cmd.name}")
     except Exception as e:
-        print(f"⚠️ Error sincronizando comandos: {e}")
+        logger.error(f"⚠️ Error sincronizando comandos: {e}", exc_info=True)
 
     start_background_tasks()
     print("✅ Tareas de fondo (timeouts) iniciadas")
@@ -61,10 +71,22 @@ async def on_command_error(ctx, error):
 
 
 # ── Registrar comandos de cada módulo ───────────────────────────────
-setup_character_commands(bot)
-setup_combat_commands(bot)
+logger.info("=== INICIANDO REGISTRO DE COMANDOS ===")
+try:
+    setup_character_commands(bot)
+    logger.info("✅ Comandos de character_creation registrados")
+except Exception as e:
+    logger.error(f"❌ Error registrando character_creation: {e}", exc_info=True)
 
+try:
+    setup_combat_commands(bot)
+    logger.info("✅ Comandos de combat registrados")
+except Exception as e:
+    logger.error(f"❌ Error registrando combat: {e}", exc_info=True)
+
+logger.info("=== FIN REGISTRO DE COMANDOS ===")
 
 # ── Arranque ─────────────────────────────────────────────────────────
 if __name__ == "__main__":
+    logger.info("🚀 Iniciando bot...")
     bot.run(TOKEN)
