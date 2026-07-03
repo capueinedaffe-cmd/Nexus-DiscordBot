@@ -73,6 +73,17 @@ async def init_db():
                 UNIQUE(character_id, material_id)
             )
         ''')
+
+        # Columna para forjar equipamento a partir de objetos 
+        await conn.execute('''
+            CREATE TABLE IF NOT EXISTS character_equipment (
+                id SERIAL PRIMARY KEY,
+                character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+                equipment_id TEXT NOT NULL,
+                cantidad INTEGER NOT NULL DEFAULT 0,
+                UNIQUE(character_id, equipment_id)
+            )
+        ''')
         
     finally:
         await conn.close()
