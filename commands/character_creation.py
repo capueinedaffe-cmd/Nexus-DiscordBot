@@ -26,12 +26,12 @@ STAT_CONFIG = CONFIG["STAT_CONFIG"]
 TOTAL_POINTS = CONFIG["TOTAL_POINTS"]
 OWNER_ID = CONFIG.get("OWNER_ID")
 STAT_ORDER = list(STAT_CONFIG.keys())
-with open("elements.json") as f:
+with open("data/elements/elements.json") as f:
     ELEMENTS_DATA = json.load(f)
 ELEMENTOS = ELEMENTS_DATA["elementos"]
 ELEMENTOS_NOMBRES = ELEMENTS_DATA["nombres"]
 ELEMENTOS_RESTRINGIDOS = set(ELEMENTS_DATA.get("restringidos", []))
-from characters_store import (
+from store.characters_store import (
     Character, add_character, count_player_characters,
     MAX_CHARACTERS_PER_USER, get_character, get_user_characters,
     add_transformation,

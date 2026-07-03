@@ -2,7 +2,7 @@
 import json
 from database import get_db_connection
 
-with open("materials.json", encoding="utf-8") as f:
+with open("data/materials/materials.json", encoding="utf-8") as f:
     _DATA = json.load(f)
 MATERIALES = _DATA["materiales"]
 

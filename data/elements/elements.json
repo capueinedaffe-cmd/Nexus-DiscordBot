@@ -1,5 +1,5 @@
 {
-  "_nota": "Banco de elementos. Cada clave es un id único (sin espacios). 'nombres' es la etiqueta que ve el usuario. 'opuestos' define qué elemento es débil contra qué. 'efectividad' define el multiplicador de daño (efectivo=x1.5, neutral=x1.0, no_efectivo=x0.5).",
+  "_nota": "Banco de elementos. Cada clave es un id único (sin espacios). 'nombres' es la etiqueta que ve el usuario. 'opuestos' define qué elemento es débil contra qué. 'efectividad' define el daño que hace un elemento contra otro (efectivo/neutral/no_efectivo).",
   "elementos": [
     "radiacion",
     "ion",

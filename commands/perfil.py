@@ -7,12 +7,12 @@ del usuario o el detalle de un personaje específico.
 
 import discord
 from discord import app_commands
-from characters_store import get_user_characters
+from store.characters_store import get_user_characters
 
 ELEMENTOS_NOMBRES = {}
 try:
     import json
-    with open("elements.json", encoding="utf-8") as f:
+    with open("data/elements/elements.json", encoding="utf-8") as f:
         ELEMENTOS_NOMBRES = json.load(f)["nombres"]
 except FileNotFoundError:
     pass

@@ -1,5 +1,5 @@
 {
-  "_nota": "Banco de habilidades. Cada clave es un id único (sin espacios). tipo: 'ataque' o 'defensa'. Si es 'defensa', no necesita modificador_dano. tier: basica | intermedia | avanzada | maestra | transformacion. exclusiva_transformacion: null, o el nombre de la transformación que la habilita.",
+  "_nota": "Banco de habilidades. Cada clave es un id único (sin espacios). tipo: 'ataque' o 'defensa'. Si es 'defensa', no necesita modificador_dano. tier: basica | intermedia | avanzada | maestra. costo_ph y costo_mana son los requisitos para usar la habilidad. exclusiva_transformacion es null si aplica a cualquier personaje, o el id de la transformación si solo se usa con esa transformación.",
   "habilidades": {
     "ejemplo_llamarada": {
       "nombre": "Llamarada",

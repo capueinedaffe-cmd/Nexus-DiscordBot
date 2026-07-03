@@ -7,8 +7,8 @@ Comandos de objetos/materiales: /dar_objeto (solo owner) y /inventario.
 import discord
 from discord import app_commands
 from config import OWNER_ID
-from characters_store import get_character, get_user_characters
-from items_store import MATERIALES, get_material, get_inventory, add_material
+from store.characters_store import get_character, get_user_characters
+from store.items_store import MATERIALES, get_material, get_inventory, add_material
 
 
 async def material_autocomplete(interaction: discord.Interaction, current: str):

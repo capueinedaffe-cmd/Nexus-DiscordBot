@@ -14,8 +14,8 @@ import logging
 from discord.ext import commands
 from discord import app_commands
 from config import OWNER_ID
-from perfil import setup_profile_commands
-from items import setup_item_commands
+from commands.perfil import setup_profile_commands
+from commands.items import setup_item_commands
 
 # ── Configurar logging ─────────────────────────────────────────────
 logging.basicConfig(
@@ -25,10 +25,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 from database import init_db
-from character_creation import setup_character_commands
-from combat import setup_combat_commands, start_background_tasks
+from commands.character_creation import setup_character_commands
+from commands.combat import setup_combat_commands, start_background_tasks
+from commands.forge import setup_forge_commands
 
-# ── Configuración básica ──────────────────────────────────────────
+# ── Configuración básica ──��───────────────────────────────────────
 TOKEN = os.environ.get("DISCORD_TOKEN")
 
 if not TOKEN:
@@ -108,6 +109,12 @@ try:
     logger.info("✅ Comandos de items registrados")
 except Exception as e:
     logger.error(f"❌ Error registrando items: {e}", exc_info=True)
+
+try:
+    setup_forge_commands(bot)
+    logger.info("✅ Comando de forja registrado")
+except Exception as e:
+    logger.error(f"❌ Error registrando forja: {e}", exc_info=True)
     
 logger.info("=== FIN REGISTRO DE COMANDOS ===")
 
