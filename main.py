@@ -14,6 +14,7 @@ import logging
 from discord.ext import commands
 from discord import app_commands
 from config import OWNER_ID
+from perfil import setup_profile_commands
 
 # ── Configurar logging ─────────────────────────────────────────────
 logging.basicConfig(
@@ -95,6 +96,12 @@ try:
 except Exception as e:
     logger.error(f"❌ Error registrando combat: {e}", exc_info=True)
 
+try:
+    setup_profile_commands(bot)
+    logger.info("✅ Comando de perfil registrado")
+except Exception as e:
+    logger.error(f"❌ Error registrando perfil: {e}", exc_info=True)
+    
 logger.info("=== FIN REGISTRO DE COMANDOS ===")
 
 # ── Arranque ─────────────────────────────────────────────────────────
