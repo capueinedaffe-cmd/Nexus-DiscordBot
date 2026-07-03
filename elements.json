@@ -143,7 +143,7 @@
       "natura": "efectivo",
       "mortis": "efectivo",
       "orden": "neutral",
-      "caos": "efectivo"
+      "caos": "neutral"
     },
     "caos": {
       "radiacion": "efectivo",
@@ -154,7 +154,7 @@
       "hadron": "efectivo",
       "natura": "efectivo",
       "mortis": "efectivo",
-      "orden": "efectivo",
+      "orden": "neutral",
       "caos": "neutral"
     }
   }
