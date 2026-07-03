@@ -37,9 +37,6 @@ from characters_store import (
     add_transformation,
 )
 
-# ── Configuración del sistema de puntos ────────────────────────────
-STAT_ORDER = ["vit", "mana", "fue", "res", "agi"]
-
 async def owner_check_direct(interaction: discord.Interaction) -> bool:
     if interaction.user.id != OWNER_ID:
         await interaction.response.send_message(
