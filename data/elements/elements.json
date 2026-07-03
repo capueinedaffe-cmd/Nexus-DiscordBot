@@ -1,0 +1,161 @@
+{
+  "_nota": "Banco de elementos. Cada clave es un id único (sin espacios). 'nombres' es la etiqueta que ve el usuario. 'opuestos' define qué elemento es débil contra qué. 'efectividad' define el daño que hace un elemento contra otro (efectivo/neutral/no_efectivo).",
+  "elementos": [
+    "radiacion",
+    "ion",
+    "nano",
+    "cuantico",
+    "terra",
+    "hadron",
+    "natura",
+    "mortis",
+    "orden",
+    "caos"
+  ],
+  "nombres": {
+    "radiacion": "Radiación (fuego)",
+    "ion": "Ión (electricidad)",
+    "nano": "Nano (agua)",
+    "cuantico": "Cuántico (hielo)",
+    "terra": "Terra (tierra)",
+    "hadron": "Hadrón (aire)",
+    "natura": "Natura (vida/naturaleza)",
+    "mortis": "Mortis (muerte)",
+    "orden": "Orden (estabilidad/pureza)",
+    "caos": "Caos (creación/corrupción)"
+  },
+  "opuestos": {
+    "radiacion": "nano",
+    "ion": "cuantico",
+    "nano": "radiacion",
+    "cuantico": "ion",
+    "terra": "hadron",
+    "hadron": "terra",
+    "natura": "mortis",
+    "mortis": "natura",
+    "orden": "caos",
+    "caos": "orden"
+  },
+  "efectividad": {
+    "radiacion": {
+      "radiacion": "neutral",
+      "ion": "neutral",
+      "nano": "no_efectivo",
+      "cuantico": "no_efectivo",
+      "terra": "no_efectivo",
+      "hadron": "efectivo",
+      "natura": "efectivo",
+      "mortis": "efectivo",
+      "orden": "no_efectivo",
+      "caos": "no_efectivo"
+    },
+    "ion": {
+      "radiacion": "neutral",
+      "ion": "neutral",
+      "nano": "efectivo",
+      "cuantico": "no_efectivo",
+      "terra": "no_efectivo",
+      "hadron": "neutral",
+      "natura": "efectivo",
+      "mortis": "neutral",
+      "orden": "no_efectivo",
+      "caos": "no_efectivo"
+    },
+    "nano": {
+      "radiacion": "no_efectivo",
+      "ion": "efectivo",
+      "nano": "neutral",
+      "cuantico": "no_efectivo",
+      "terra": "efectivo",
+      "hadron": "neutral",
+      "natura": "no_efectivo",
+      "mortis": "neutral",
+      "orden": "no_efectivo",
+      "caos": "no_efectivo"
+    },
+    "cuantico": {
+      "radiacion": "efectivo",
+      "ion": "efectivo",
+      "nano": "no_efectivo",
+      "cuantico": "neutral",
+      "terra": "no_efectivo",
+      "hadron": "efectivo",
+      "natura": "no_efectivo",
+      "mortis": "neutral",
+      "orden": "no_efectivo",
+      "caos": "no_efectivo"
+    },
+    "terra": {
+      "radiacion": "neutral",
+      "ion": "efectivo",
+      "nano": "efectivo",
+      "cuantico": "efectivo",
+      "terra": "neutral",
+      "hadron": "efectivo",
+      "natura": "neutral",
+      "mortis": "neutral",
+      "orden": "no_efectivo",
+      "caos": "no_efectivo"
+    },
+    "hadron": {
+      "radiacion": "no_efectivo",
+      "ion": "efectivo",
+      "nano": "neutral",
+      "cuantico": "no_efectivo",
+      "terra": "no_efectivo",
+      "hadron": "neutral",
+      "natura": "efectivo",
+      "mortis": "neutral",
+      "orden": "no_efectivo",
+      "caos": "no_efectivo"
+    },
+    "natura": {
+      "radiacion": "no_efectivo",
+      "ion": "neutral",
+      "nano": "efectivo",
+      "cuantico": "neutral",
+      "terra": "efectivo",
+      "hadron": "no_efectivo",
+      "natura": "neutral",
+      "mortis": "no_efectivo",
+      "orden": "no_efectivo",
+      "caos": "no_efectivo"
+    },
+    "mortis": {
+      "radiacion": "no_efectivo",
+      "ion": "neutral",
+      "nano": "neutral",
+      "cuantico": "neutral",
+      "terra": "neutral",
+      "hadron": "neutral",
+      "natura": "efectivo",
+      "mortis": "neutral",
+      "orden": "neutral",
+      "caos": "neutral"
+    },
+    "orden": {
+      "radiacion": "efectivo",
+      "ion": "efectivo",
+      "nano": "efectivo",
+      "cuantico": "efectivo",
+      "terra": "efectivo",
+      "hadron": "efectivo",
+      "natura": "efectivo",
+      "mortis": "efectivo",
+      "orden": "neutral",
+      "caos": "neutral"
+    },
+    "caos": {
+      "radiacion": "efectivo",
+      "ion": "efectivo",
+      "nano": "efectivo",
+      "cuantico": "efectivo",
+      "terra": "efectivo",
+      "hadron": "efectivo",
+      "natura": "efectivo",
+      "mortis": "efectivo",
+      "orden": "neutral",
+      "caos": "neutral"
+    }
+  }
+}

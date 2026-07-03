@@ -14,8 +14,8 @@ import logging
 from discord.ext import commands
 from discord import app_commands
 from config import OWNER_ID
-from perfil import setup_profile_commands
-from items import setup_item_commands
+from commands.perfil import setup_profile_commands
+from commands.items import setup_item_commands
 
 # ── Configurar logging ─────────────────────────────────────────────
 logging.basicConfig(
@@ -25,10 +25,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 from database import init_db
-from character_creation import setup_character_commands
-from combat import setup_combat_commands, start_background_tasks
+from commands.character_creation import setup_character_commands
+from commands.combat import setup_combat_commands, start_background_tasks
 
-# ── Configuración básica ──────────────────────────────────────────
+# ── Configuración básica ──��───────────────────────────────────────
 TOKEN = os.environ.get("DISCORD_TOKEN")
 
 if not TOKEN:
