@@ -165,7 +165,7 @@ class Fighter:
         )
 
 
-# ── Lobby de espera antes de un combate ─────────────────────────────
+# ── Mecánica de esquiva ─────────────────────────────
 GRADO_MULTIPLICADOR = {
     "fallo_parcial": 0.5,
     "estandar": 1.0,
