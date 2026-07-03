@@ -80,7 +80,7 @@ class StatPanelView(discord.ui.View):
     Mantiene el estado de puntos repartidos hasta que el usuario confirma.
     """
 
-    def __init__(self, owner_id, name, is_npc):
+    def __init__(self, owner_id, name, is_npc, elemento):
         super().__init__(timeout=180)  # 3 minutos de inactividad y se cierra
         self.owner_id = owner_id
         self.name = name
@@ -102,9 +102,9 @@ class StatPanelView(discord.ui.View):
             lines.append(f"{marker} {cfg['label']}: **{self.values[stat]}** (máx {cfg['max']})")
 
         tipo = "NPC" if self.is_npc else "Personaje"
+        elemento_label = ELEMENTOS_NOMBRES.get(self.elemento, self.elemento)
         embed = discord.Embed(
             title=f"Creación de {tipo}: {self.name}",
-            elemento_label = ELEMENTOS_NOMBRES.get(self.elemento, self.elemento),
             description=(
                 f"Elemento innato: **{elemento_label}**\n"
                 f"Puntos restantes: **{self.points_left}/{TOTAL_POINTS}**\n\n"
