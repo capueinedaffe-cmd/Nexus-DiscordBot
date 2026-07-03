@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 from database import init_db
 from commands.character_creation import setup_character_commands
 from commands.combat import setup_combat_commands, start_background_tasks
+from commands.forge import setup_forge_commands
 
 # ── Configuración básica ──��───────────────────────────────────────
 TOKEN = os.environ.get("DISCORD_TOKEN")
@@ -108,6 +109,12 @@ try:
     logger.info("✅ Comandos de items registrados")
 except Exception as e:
     logger.error(f"❌ Error registrando items: {e}", exc_info=True)
+
+try:
+    setup_forge_commands(bot)
+    logger.info("✅ Comando de forja registrado")
+except Exception as e:
+    logger.error(f"❌ Error registrando forja: {e}", exc_info=True)
     
 logger.info("=== FIN REGISTRO DE COMANDOS ===")
 
