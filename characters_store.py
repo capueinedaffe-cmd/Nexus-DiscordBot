@@ -91,6 +91,29 @@ async def add_character(character: Character) -> None:
     finally:
         await conn.close()
 
+async def record_combat_result(character_id: int, resultado: Optional[str],
+                                usos_habilidad: int = 0, elemento: Optional[str] = None) -> None:
+    """resultado: 'victoria' | 'derrota' | None (None = no cuenta W/L, solo maestría)."""
+    conn = await get_db_connection()
+    try:
+        if resultado == "victoria":
+            await conn.execute("UPDATE characters SET victorias = victorias + 1 WHERE id = $1", character_id)
+        elif resultado == "derrota":
+            await conn.execute("UPDATE characters SET derrotas = derrotas + 1 WHERE id = $1", character_id)
+
+        if usos_habilidad > 0 and elemento:
+            await conn.execute('''
+                UPDATE characters
+                SET maestria_usos = jsonb_set(
+                    maestria_usos,
+                    ARRAY[$2],
+                    to_jsonb(COALESCE((maestria_usos->>$2)::int, 0) + $3)
+                )
+                WHERE id = $1
+            ''', character_id, elemento, usos_habilidad)
+    finally:
+        await conn.close()
+
 async def apply_level_penalty(character: Character) -> None:
     if character.is_npc:
         return
