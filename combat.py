@@ -90,6 +90,7 @@ class Fighter:
         self.ph = 0  # se pisa abajo, queda así para no romper el orden de ph_max
         self.ph = self.ph_max
         self.is_defending = False
+        self.escudo = None
 
         # Transformaciones precargadas para no golpear la BD en pleno combate
         self.transformaciones = {t["name"].lower(): t for t in (transformaciones or [])}
@@ -666,20 +667,17 @@ def setup_combat_commands(bot):
             await interaction.response.send_message("Objetivo inválido.", ephemeral=True)
             return
 
-        damage = max(1, attacker.fue - target.defense)
-        if target.is_defending:
-            damage = max(1, damage // 2)
-            target.is_defending = False
+        damage_base = max(1, attacker.fue - target.defense)
+        texto, damage, evadido = resolver_ataque(attacker, target, attacker.fue, damage_base, elemento=None)
 
-        target.vit = max(0, target.vit - damage)
         ph_ganado = 2 + (1 if attacker.transformado else 0)
         attacker.ph = min(attacker.ph_max, attacker.ph + ph_ganado)
-        result_line = f"⚔️ **{attacker.name}** ataca a **{target.name}** causando **{damage}** de daño. (+2 PH)"
+        result_line = f"⚔️ **{attacker.name}** ataca a **{target.name}**. {texto}"
 
         if session.is_over():
             await _end_combat_victory(interaction, session, result_line)
             return
-
+        
         drain_msg = session.advance_turn()
         embed = session.status_embed()
         descripcion = result_line + (f"\n\n{drain_msg}" if drain_msg else "")
@@ -746,9 +744,9 @@ def setup_combat_commands(bot):
     
     # ── /usar_habilidad ──────────────────────────────────────────
     @bot.tree.command(name="usar_habilidad", description="Usa una habilidad de tu elemento, pasa el turno")
-    @app_commands.describe(personaje="Tu personaje que actúa", objetivo="A quién ataca", habilidad="Habilidad a usar")
+    @app_commands.describe(personaje="Tu personaje que actúa", habilidad="Habilidad a usar", objetivo="A quién ataca (no aplica en habilidades defensivas)")
     @app_commands.autocomplete(personaje=personaje_autocomplete, objetivo=objetivo_autocomplete, habilidad=habilidad_autocomplete)
-    async def usar_habilidad(interaction: discord.Interaction, personaje: str, objetivo: str, habilidad: str):
+    async def usar_habilidad(interaction: discord.Interaction, personaje: str, habilidad: str, objetivo: str = None):
         session = _get_active_session(interaction)
         if not session:
             await interaction.response.send_message("No hay combate activo en este canal.", ephemeral=True)
@@ -773,13 +771,7 @@ def setup_combat_commands(bot):
             return
         if hab.get("exclusiva_transformacion"):
             await interaction.response.send_message(
-                "Esa habilidad solo se puede usar transformado (todavía no implementado).", ephemeral=True
-            )
-            return
-        if hab["tipo"] == "defensa":
-            await interaction.response.send_message(
-                "Las habilidades defensivas todavía no están implementadas (llegan en la próxima etapa).",
-                ephemeral=True,
+                "Esa habilidad requiere una transformación específica (todavía no implementado).", ephemeral=True
             )
             return
 
@@ -800,28 +792,34 @@ def setup_combat_commands(bot):
             await interaction.response.send_message(f"No alcanza: {', '.join(faltante)}.", ephemeral=True)
             return
 
+        attacker.ph -= hab["costo_ph"]
+        attacker.mana -= hab["costo_mana"]
+
+        # ── Habilidad defensiva: activa un escudo, no necesita objetivo ──
+        if hab["tipo"] == "defensa":
+            attacker.escudo = {"nombre": hab["nombre"], "elemento": hab["elemento"], "hits_taken": 0}
+            result_line = f"🛡️ **{attacker.name}** activa **{hab['nombre']}** (escudo de elemento {hab['elemento']})."
+
+            drain_msg = session.advance_turn()
+            embed = session.status_embed()
+            embed.description = result_line + (f"\n\n{drain_msg}" if drain_msg else "") + "\n\n" + embed.description
+            await interaction.response.send_message("Acción registrada.", ephemeral=True)
+            await _publish(interaction, session, embed)
+            return
+
+        # ── Habilidad de ataque ──
+        if not objetivo:
+            await interaction.response.send_message("Esta habilidad necesita un objetivo.", ephemeral=True)
+            return
+
         target = next((f for f in session.fighters if f.name.lower() == objetivo.lower() and f.alive), None)
         if not target or target.team == attacker.team:
             await interaction.response.send_message("Objetivo inválido.", ephemeral=True)
             return
 
-        attacker.ph -= hab["costo_ph"]
-        attacker.mana -= hab["costo_mana"]
-
-        # Daño elemental: RES + modificador de la habilidad.
-        # No se resta ninguna resistencia pasiva del objetivo: las resistencias
-        # elementales solo existen mientras hay una habilidad defensiva activa
-        # (eso se resuelve en la etapa de defensas elementales).
-        damage = max(1, attacker.res + hab["modificador_dano"])
-        if target.is_defending:
-            damage = max(1, damage // 2)
-            target.is_defending = False
-        target.vit = max(0, target.vit - damage)
-
-        result_line = (
-            f"✨ **{attacker.name}** usa **{hab['nombre']}** contra **{target.name}** "
-            f"causando **{damage}** de daño. (−{hab['costo_ph']} PH  −{hab['costo_mana']} MANA)"
-        )
+        damage_base = max(1, attacker.res + hab["modificador_dano"])
+        texto, damage, evadido = resolver_ataque(attacker, target, attacker.res, damage_base, elemento=hab["elemento"])
+        result_line = f"✨ **{attacker.name}** usa **{hab['nombre']}** contra **{target.name}**. {texto}"
 
         if session.is_over():
             await _end_combat_victory(interaction, session, result_line)
