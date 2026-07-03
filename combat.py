@@ -35,7 +35,7 @@ from discord.ext import tasks
 from config import OWNER_ID
 from characters_store import (
     get_character, get_user_characters, apply_level_penalty,
-    get_character_transformations,
+    get_character_transformations, record_combat_result
 )
 from abilities_store import get_ability, min_level_for
 
@@ -91,6 +91,7 @@ class Fighter:
         self.ph = self.ph_max
         self.is_defending = False
         self.escudo = None
+        self.usos_habilidad_combate = 0
 
         # Transformaciones precargadas para no golpear la BD en pleno combate
         self.transformaciones = {t["name"].lower(): t for t in (transformaciones or [])}
@@ -799,6 +800,7 @@ def setup_combat_commands(bot):
 
         attacker.ph -= hab["costo_ph"]
         attacker.mana -= hab["costo_mana"]
+        attacker.usos_habilidad_combate += 1
 
         # ── Habilidad defensiva: activa un escudo, no necesita objetivo ──
         if hab["tipo"] == "defensa":
@@ -970,6 +972,7 @@ def setup_combat_commands(bot):
             )
             await interaction.response.send_message("Rendición confirmada. El combate terminó.", ephemeral=True)
             await _publish(interaction, session, embed)
+            await _persist_combat_stats(session, {winning_team: "victoria", 1 - winning_team: "derrota"})
             del ACTIVE_COMBATS[interaction.channel_id]
         else:
             await interaction.response.send_message(
@@ -980,6 +983,15 @@ def setup_combat_commands(bot):
     # Las tareas de fondo (timeouts) se arrancan desde main.py en on_ready,
     # no acá, porque en este punto todavía no hay un event loop corriendo.
 
+async def _persist_combat_stats(session, resultados_equipo):
+    """resultados_equipo: {0: 'victoria'|'derrota'|None, 1: ...}"""
+    for f in session.fighters:
+        resultado = resultados_equipo.get(f.team)
+        await record_combat_result(
+            f.character.id, resultado,
+            usos_habilidad=f.usos_habilidad_combate,
+            elemento=f.elemento,
+        )
 
 async def _end_combat_victory(interaction, session, result_line):
     winning_team = session.winning_team()
@@ -991,6 +1003,7 @@ async def _end_combat_victory(interaction, session, result_line):
     )
     await interaction.response.send_message("Combate finalizado.", ephemeral=True)
     await _publish(interaction, session, embed)
+    await _persist_combat_stats(session, {winning_team: "victoria", 1 - winning_team: "derrota"})
     del ACTIVE_COMBATS[interaction.channel_id]
 
 
