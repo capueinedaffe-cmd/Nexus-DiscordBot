@@ -166,6 +166,94 @@ class Fighter:
 
 
 # ── Lobby de espera antes de un combate ─────────────────────────────
+GRADO_MULTIPLICADOR = {
+    "fallo_parcial": 0.5,
+    "estandar": 1.0,
+    "limpio": 1.25,
+    "critico": 1.5,
+}
+
+def tirar_grado(bono_stat):
+    """d20 + stat relevante → (nombre_grado, total)."""
+    total = random.randint(1, 20) + bono_stat
+    if total <= 8:
+        return "fallo_parcial", total
+    elif total <= 14:
+        return "estandar", total
+    elif total <= 19:
+        return "limpio", total
+    else:
+        return "critico", total
+
+
+def calcular_esquiva(atacante_agi, defensor_agi):
+    """% de esquiva del defensor según la diferencia de AGI."""
+    diff = defensor_agi - atacante_agi
+    if diff >= 0:
+        chance = 10 + 2 * diff
+    else:
+        exceso = -diff
+        if exceso <= 10:
+            chance = 10
+        else:
+            chance = 10 - 2 * (exceso - 10)
+    return max(0, min(100, chance))
+
+
+def resolver_ataque(attacker, target, bono_stat, danio_base, elemento=None):
+    """
+    Resuelve esquiva → escudo elemental (si aplica) → Tirada de Grado → daño.
+    elemento=None significa ataque físico (ignora escudos elementales).
+    Devuelve (texto_resultado, danio_infligido, evadido_bool).
+    """
+    # 1. Esquiva
+    chance = calcular_esquiva(attacker.agi, target.agi)
+    if random.randint(1, 100) <= chance:
+        target.ph = min(target.ph_max, target.ph + 2)
+        return (f"💨 **{target.name}** esquiva el ataque (+2 PH).", 0, True)
+
+    # 2. Escudo elemental — solo interactúa con ataques que tienen elemento
+    if elemento and target.escudo:
+        eff = ELEMENTS_DATA["efectividad"].get(elemento, {}).get(target.escudo["elemento"], "neutral")
+        necesarios = {"efectivo": 0, "neutral": 1, "no_efectivo": 2}[eff]
+        if necesarios > 0:
+            target.escudo["hits_taken"] += 1
+            if target.escudo["hits_taken"] >= necesarios:
+                texto = f"💥 El escudo **{target.escudo['nombre']}** se rompe, sin daño directo."
+                target.escudo = None
+            else:
+                texto = f"🛡️ El escudo **{target.escudo['nombre']}** absorbe el golpe."
+            return (texto, 0, False)
+        else:
+            # Elemento efectivo: el escudo se rompe y el golpe pasa de largo con daño directo
+            target.escudo = None
+
+    # 3. Tirada de Grado
+    grado, total = tirar_grado(bono_stat)
+    multiplicador = GRADO_MULTIPLICADOR[grado]
+
+    # 4. Vulnerabilidad por transformación al elemento opuesto
+    if elemento and target.elemento_vulnerable == elemento:
+        multiplicador *= 1.5
+
+    if target.is_defending:
+        multiplicador *= 0.5
+        target.is_defending = False
+
+    damage = max(1, round(danio_base * multiplicador))
+    target.vit = max(0, target.vit - damage)
+
+    etiquetas = {
+        "fallo_parcial": "fallo parcial",
+        "estandar": "éxito",
+        "limpio": "éxito limpio",
+        "critico": "¡CRÍTICO!",
+    }
+    texto = f"({etiquetas[grado]}, tirada {total}) **{damage}** de daño."
+    return (texto, damage, False)
+
+
+# ── Lobby de espera antes de un combate ─────────────────────────────
 class CombatLobby:
     def __init__(self, channel_id):
         self.channel_id = channel_id
