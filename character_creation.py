@@ -13,8 +13,9 @@ Comandos:
 """
 
 import discord
-
 import json
+
+from discord import app_command
 with open("config.json") as f:
     CONFIG = json.load(f)
 STAT_CONFIG = CONFIG["STAT_CONFIG"]
@@ -27,7 +28,8 @@ ELEMENTOS_NOMBRES = ELEMENTS_DATA["nombres"]
 ELEMENTOS_RESTRINGIDOS = set(ELEMENTS_DATA.get("restringidos", []))
 from characters_store import (
     Character, add_character, count_player_characters,
-    MAX_CHARACTERS_PER_USER,
+    MAX_CHARACTERS_PER_USER, get_character, get_user_characters,
+    add_transformation,
 )
 
 # ── Configuración del sistema de puntos ────────────────────────────
@@ -231,6 +233,14 @@ class NameModal(discord.ui.Modal, title="Nombre del personaje"):
             view = ElementSelectView(interaction.user.id, name, is_npc=False)
             await interaction.response.send_message("Elegí el elemento innato:", view=view)
 
+# ── Autocompletado ───────────────────────────────────────────
+
+async def mi_personaje_autocomplete(interaction: discord.Interaction, current: str):
+    chars = await get_user_characters(interaction.user.id, include_npc=True)
+    return [
+        app_commands.Choice(name=c.name, value=c.name)
+        for c in chars if current.lower() in c.name.lower()
+    ][:25]
 
 # ── Registro de comandos ───────────────────────────────────────────
 def setup_character_commands(bot):
@@ -250,3 +260,45 @@ def setup_character_commands(bot):
         if not await owner_check_direct(interaction):
             return
         await interaction.response.send_modal(NameModal(advanced=True))
+
+    @bot.tree.command(name="crear_transformacion", description="Define una transformación para uno de tus personajes")
+    @app_commands.describe(
+        personaje="Personaje al que pertenece",
+        nombre="Nombre de la transformación",
+        bonus_vit="Bonus a VIT (0 si no aplica)",
+        bonus_mana="Bonus a MANA",
+        bonus_fue="Bonus a FUE",
+        bonus_res="Bonus a RES",
+        bonus_agi="Bonus a AGI",
+        condicion="Condición narrativa/mecánica para poder activarla",
+    )
+    @app_commands.autocomplete(personaje=mi_personaje_autocomplete)
+    async def crear_transformacion(interaction: discord.Interaction, personaje: str,
+                                    nombre: str, bonus_vit: int, bonus_mana: int,
+                                    bonus_fue: int, bonus_res: int, bonus_agi: int,
+                                    condicion: str):
+        char = await get_character(interaction.user.id, personaje)
+        if not char:
+            await interaction.response.send_message(
+                f"No tenés un personaje llamado **{personaje}**.", ephemeral=True
+            )
+            return
+
+        bonuses = {"vit": bonus_vit, "mana": bonus_mana, "fue": bonus_fue, "res": bonus_res, "agi": bonus_agi}
+        total = sum(bonuses.values())
+        if total <= 0:
+            await interaction.response.send_message(
+                "La transformación necesita otorgar al menos +1 en alguna estadística.", ephemeral=True
+            )
+            return
+
+        # El elemento de la transformación es siempre el elemento innato del personaje.
+        ph_drain = max(1, round(total / 3))
+
+        await add_transformation(char.id, nombre, char.elemento, bonuses, ph_drain, condicion)
+
+        await interaction.response.send_message(
+            f"✅ Transformación **{nombre}** creada para **{char.name}** "
+            f"(elemento {char.elemento}, drena {ph_drain} PH y 1 MANA por turno mientras esté activa).",
+            ephemeral=True,
+        )
