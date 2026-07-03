@@ -12,6 +12,8 @@ import os
 import discord
 import logging
 from discord.ext import commands
+from discord import app_commands
+from config import OWNER_ID
 
 # ── Configurar logging ─────────────────────────────────────────────
 logging.basicConfig(
@@ -54,10 +56,19 @@ async def on_ready():
     print("✅ Tareas de fondo (timeouts) iniciadas")
 
 
+# ── Comandos utilidades ───────────────────────────────────────────────
 @bot.tree.command(name="ping", description="Verifica que el bot está vivo")
 async def ping(interaction: discord.Interaction):
     await interaction.response.send_message("🏓 Pong! (⁠≧⁠▽⁠≦⁠)")
 
+@bot.tree.command(name="escribir", description="[Solo owner] Envía un mensaje por el bot")
+@app_commands.describe(texto="Texto a enviar")
+async def escribir(interaction: discord.Interaction, texto: str):
+    if interaction.user.id != OWNER_ID:
+        await interaction.response.send_message("No tenés permiso para usar este comando.", ephemeral=True)
+        return
+    await interaction.response.send_message("Mensaje enviado.", ephemeral=True)
+    await interaction.channel.send(texto)
 
 # El bot solo usa slash commands (/), no comandos con prefijo "!".
 # Si alguien escribe "!algo" por costumbre, Discord.py lo intenta procesar
