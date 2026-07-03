@@ -15,7 +15,7 @@ Comandos:
 import discord
 import json
 
-from discord import app_command
+from discord import app_commands
 with open("config.json") as f:
     CONFIG = json.load(f)
 STAT_CONFIG = CONFIG["STAT_CONFIG"]
