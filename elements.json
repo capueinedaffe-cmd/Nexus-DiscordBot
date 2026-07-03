@@ -1,0 +1,137 @@
+{
+  "_nota": "Editá 'efectividad' para definir qué tan bien le pega cada elemento a cada otro. Valores: efectivo | neutral | no_efectivo. 'opuestos' se usa para la vulnerabilidad al transformarse (null = sin opuesto).",
+  "elementos": [
+    "radiacion",
+    "ion",
+    "nano",
+    "terra",
+    "hadron",
+    "natura",
+    "mortis",
+    "orden",
+    "caos"
+  ],
+  "nombres": {
+    "radiacion": "Radiación (fuego)",
+    "ion": "Ión (electricidad)",
+    "nano": "Nano (agua)",
+    "terra": "Terra (tierra)",
+    "hadron": "Hadrón (aire)",
+    "natura": "Natura (vida/naturaleza)",
+    "mortis": "Mortis (muerte)",
+    "orden": "Orden (estabilidad/pureza)",
+    "caos": "Caos (creación/corrupción)"
+  },
+  "opuestos": {
+    "radiacion": "nano",
+    "nano": "radiacion",
+    "terra": "hadron",
+    "hadron": "terra",
+    "natura": "mortis",
+    "mortis": "natura",
+    "orden": "caos",
+    "caos": "orden",
+    "ion": null
+  },
+  "efectividad": {
+    "radiacion": {
+      "radiacion": "neutral",
+      "ion": "neutral",
+      "nano": "neutral",
+      "terra": "neutral",
+      "hadron": "neutral",
+      "natura": "neutral",
+      "mortis": "neutral",
+      "orden": "neutral",
+      "caos": "neutral"
+    },
+    "ion": {
+      "radiacion": "neutral",
+      "ion": "neutral",
+      "nano": "neutral",
+      "terra": "neutral",
+      "hadron": "neutral",
+      "natura": "neutral",
+      "mortis": "neutral",
+      "orden": "neutral",
+      "caos": "neutral"
+    },
+    "nano": {
+      "radiacion": "neutral",
+      "ion": "neutral",
+      "nano": "neutral",
+      "terra": "neutral",
+      "hadron": "neutral",
+      "natura": "neutral",
+      "mortis": "neutral",
+      "orden": "neutral",
+      "caos": "neutral"
+    },
+    "terra": {
+      "radiacion": "neutral",
+      "ion": "neutral",
+      "nano": "neutral",
+      "terra": "neutral",
+      "hadron": "neutral",
+      "natura": "neutral",
+      "mortis": "neutral",
+      "orden": "neutral",
+      "caos": "neutral"
+    },
+    "hadron": {
+      "radiacion": "neutral",
+      "ion": "neutral",
+      "nano": "neutral",
+      "terra": "neutral",
+      "hadron": "neutral",
+      "natura": "neutral",
+      "mortis": "neutral",
+      "orden": "neutral",
+      "caos": "neutral"
+    },
+    "natura": {
+      "radiacion": "neutral",
+      "ion": "neutral",
+      "nano": "neutral",
+      "terra": "neutral",
+      "hadron": "neutral",
+      "natura": "neutral",
+      "mortis": "neutral",
+      "orden": "neutral",
+      "caos": "neutral"
+    },
+    "mortis": {
+      "radiacion": "neutral",
+      "ion": "neutral",
+      "nano": "neutral",
+      "terra": "neutral",
+      "hadron": "neutral",
+      "natura": "neutral",
+      "mortis": "neutral",
+      "orden": "neutral",
+      "caos": "neutral"
+    },
+    "orden": {
+      "radiacion": "neutral",
+      "ion": "neutral",
+      "nano": "neutral",
+      "terra": "neutral",
+      "hadron": "neutral",
+      "natura": "neutral",
+      "mortis": "neutral",
+      "orden": "neutral",
+      "caos": "neutral"
+    },
+    "caos": {
+      "radiacion": "neutral",
+      "ion": "neutral",
+      "nano": "neutral",
+      "terra": "neutral",
+      "hadron": "neutral",
+      "natura": "neutral",
+      "mortis": "neutral",
+      "orden": "neutral",
+      "caos": "neutral"
+    }
+  }
+}
