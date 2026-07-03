@@ -314,6 +314,8 @@ class CombatSession:
         self.last_action_time = time.time()
         self.status_message = None   # mensaje del panel, se edita en vez de duplicarse
         self._roll_initiative()
+        self.terminate_votes = set()
+        self.surrender_votes = {0: set(), 1: set()}   # ← nuevo
 
     def _roll_initiative(self):
         rolls = [(random.randint(1, 6) + f.agi, f) for f in self.fighters]
@@ -342,7 +344,7 @@ class CombatSession:
             if self.fighters[self.turn_index].alive:
                 break
         self.last_action_time = time.time()
-        return self.current_procesar_drain_transformacion()
+        return self.current.procesar_drain_transformacion()
 
     def team_alive(self, team):
         return any(f.alive for f in self.fighters if f.team == team)
@@ -715,6 +717,33 @@ def setup_combat_commands(bot):
         await interaction.response.send_message("Acción registrada.", ephemeral=True)
         await _publish(interaction, session, embed)
 
+    # ── /esperar ─────────────────────────────────────────────────
+    @bot.tree.command(name="esperar", description="No hacés nada este turno")
+    @app_commands.describe(personaje="Tu personaje que espera")
+    @app_commands.autocomplete(personaje=personaje_autocomplete)
+    async def esperar(interaction: discord.Interaction, personaje: str):
+        session = _get_active_session(interaction)
+        if not session:
+            await interaction.response.send_message("No hay combate activo en este canal.", ephemeral=True)
+            return
+        if session.paused:
+            await interaction.response.send_message("El combate está pausado.", ephemeral=True)
+            return
+
+        fighter, err = _validate_turn(session, interaction, personaje)
+        if err:
+            await interaction.response.send_message(err, ephemeral=True)
+            return
+
+        result_line = f"⏳ **{fighter.name}** no hace nada."
+
+        drain_msg = session.advance_turn()
+        embed = session.status_embed()
+        descripcion = result_line + (f"\n\n{drain_msg}" if drain_msg else "")
+        embed.description = descripcion + "\n\n" + embed.description
+        await interaction.response.send_message("Acción registrada.", ephemeral=True)
+        await _publish(interaction, session, embed)
+    
     # ── /usar_habilidad ──────────────────────────────────────────
     @bot.tree.command(name="usar_habilidad", description="Usa una habilidad de tu elemento, pasa el turno")
     @app_commands.describe(personaje="Tu personaje que actúa", objetivo="A quién ataca", habilidad="Habilidad a usar")
@@ -903,6 +932,48 @@ def setup_combat_commands(bot):
                 ephemeral=True,
             )
 
+    # ── /rendirse ────────────────────────────────────────────────
+    @bot.tree.command(name="rendirse", description="Vota para rendir a tu equipo (requiere unanimidad del equipo)")
+    @app_commands.describe(personaje="Uno de tus personajes en este combate")
+    @app_commands.autocomplete(personaje=personaje_autocomplete)
+    async def rendirse(interaction: discord.Interaction, personaje: str):
+        session = _get_active_session(interaction)
+        if not session:
+            await interaction.response.send_message("No hay combate activo en este canal.", ephemeral=True)
+            return
+
+        fighter = next(
+            (f for f in session.fighters
+             if f.owner_id == interaction.user.id and f.name.lower() == personaje.lower()),
+            None,
+        )
+        if not fighter:
+            await interaction.response.send_message(
+                f"No tenés un personaje llamado **{personaje}** en este combate.", ephemeral=True
+            )
+            return
+
+        team = fighter.team
+        session.surrender_votes[team].add(interaction.user.id)
+        needed = session.team_owner_ids(team)
+
+        if session.surrender_votes[team] >= needed:
+            equipo_ganador = 1 - team
+            ganadores = [f.name for f in session.fighters if f.team == equipo_ganador]
+            embed = session.status_embed(title="🏳️ Combate finalizado por rendición")
+            embed.description = (
+                f"**Equipo {team + 1} se rinde.** ¡**Equipo {equipo_ganador + 1}** gana! "
+                f"({', '.join(ganadores)})\n\n" + embed.description
+            )
+            await interaction.response.send_message("Rendición confirmada. El combate terminó.", ephemeral=True)
+            await _publish(interaction, session, embed)
+            del ACTIVE_COMBATS[interaction.channel_id]
+        else:
+            await interaction.response.send_message(
+                f"Voto para rendirse registrado ({len(session.surrender_votes[team])}/{len(needed)} de tu equipo).",
+                ephemeral=True,
+            )
+
     # Las tareas de fondo (timeouts) se arrancan desde main.py en on_ready,
     # no acá, porque en este punto todavía no hay un event loop corriendo.
 
@@ -930,7 +1001,6 @@ def start_background_tasks():
         check_turn_timeouts.start()
     if not check_lobby_timeouts.is_running():
         check_lobby_timeouts.start()
-
 
 # ── Tarea: revisa timeouts de turno (10 minutos sin actuar) ─────────
 @tasks.loop(seconds=60)
