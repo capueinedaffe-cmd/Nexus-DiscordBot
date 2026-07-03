@@ -30,6 +30,7 @@ from discord.ext import tasks
 
 from config import OWNER_ID
 from characters_store import get_character, get_user_characters, apply_level_penalty
+from abilities_store import get_ability, min_level_for
 
 TURN_TIMEOUT_SECONDS = 10 * 60   # 10 minutos
 LOBBY_TIMEOUT_SECONDS = 5 * 60   # 5 minutos
@@ -78,6 +79,8 @@ class Fighter:
         self.res = character.res
         self.agi = character.agi
         self.ph = 0
+        self.elemento = character.elemento
+        self.level = character.level
         self.is_defending = False
 
     @property
@@ -287,6 +290,33 @@ async def objetivo_autocomplete(interaction: discord.Interaction, current: str):
         app_commands.Choice(name=f"{f.name} (Equipo {f.team + 1})", value=f.name)
         for f in opts if current.lower() in f.name.lower()
     ][:25]
+
+
+async def habilidad_autocomplete(interaction: discord.Interaction, current: str):
+    session = ACTIVE_COMBATS.get(interaction.channel_id)
+    if not session:
+        return []
+    nombre_personaje = interaction.namespace.personaje
+    fighter = next(
+        (f for f in session.fighters
+         if f.owner_id == interaction.user.id
+         and (not nombre_personaje or f.name.lower() == nombre_personaje.lower())),
+        None,
+    )
+    if not fighter:
+        return []
+
+    opciones = []
+    for hab_id, hab in get_ability.__globals__["HABILIDADES"].items():
+        if hab["elemento"] != fighter.elemento:
+            continue
+        if hab.get("exclusiva_transformacion"):
+            continue  # se habilita en la Etapa 4
+        if fighter.level < min_level_for(hab["tier"]):
+            continue
+        if current.lower() in hab["nombre"].lower():
+            opciones.append(app_commands.Choice(name=hab["nombre"], value=hab_id))
+    return opciones[:25]
 
 
 async def mi_personaje_lobby_autocomplete(interaction: discord.Interaction, current: str):
@@ -515,15 +545,10 @@ def setup_combat_commands(bot):
         await _publish(interaction, session, embed)
 
     # ── /usar_habilidad ──────────────────────────────────────────
-    @bot.tree.command(name="usar_habilidad", description="Usa una habilidad con costo definido, pasa el turno")
-    @app_commands.describe(
-        personaje="Tu personaje que actúa", objetivo="A quién ataca la habilidad",
-        nombre="Nombre de la habilidad", costo_ph="Costo en PH",
-        costo_mana="Costo en MANA", dano="Daño que causa",
-    )
-    @app_commands.autocomplete(personaje=personaje_autocomplete, objetivo=objetivo_autocomplete)
-    async def usar_habilidad(interaction: discord.Interaction, personaje: str, objetivo: str,
-                              nombre: str, costo_ph: int, costo_mana: int, dano: int):
+    @bot.tree.command(name="usar_habilidad", description="Usa una habilidad de tu elemento, pasa el turno")
+    @app_commands.describe(personaje="Tu personaje que actúa", objetivo="A quién ataca", habilidad="Habilidad a usar")
+    @app_commands.autocomplete(personaje=personaje_autocomplete, objetivo=objetivo_autocomplete, habilidad=habilidad_autocomplete)
+    async def usar_habilidad(interaction: discord.Interaction, personaje: str, objetivo: str, habilidad: str):
         session = _get_active_session(interaction)
         if not session:
             await interaction.response.send_message("No hay combate activo en este canal.", ephemeral=True)
@@ -537,37 +562,65 @@ def setup_combat_commands(bot):
             await interaction.response.send_message(err, ephemeral=True)
             return
 
+        hab = get_ability(habilidad)
+        if not hab:
+            await interaction.response.send_message("Esa habilidad no existe en el banco.", ephemeral=True)
+            return
+        if hab["elemento"] != attacker.elemento:
+            await interaction.response.send_message(
+                f"**{attacker.name}** no puede usar habilidades de otro elemento.", ephemeral=True
+            )
+            return
+        if hab.get("exclusiva_transformacion"):
+            await interaction.response.send_message(
+                "Esa habilidad solo se puede usar transformado (todavía no implementado).", ephemeral=True
+            )
+            return
+        if hab["tipo"] == "defensa":
+            await interaction.response.send_message(
+                "Las habilidades defensivas todavía no están implementadas (llegan en la próxima etapa).",
+                ephemeral=True,
+            )
+            return
+
+        nivel_necesario = min_level_for(hab["tier"])
+        if attacker.level < nivel_necesario:
+            await interaction.response.send_message(
+                f"Necesitás nivel {nivel_necesario} para usar **{hab['nombre']}** (tier {hab['tier']}).",
+                ephemeral=True,
+            )
+            return
+
+        if attacker.ph < hab["costo_ph"] or attacker.mana < hab["costo_mana"]:
+            faltante = []
+            if attacker.ph < hab["costo_ph"]:
+                faltante.append(f"PH ({attacker.ph}/{hab['costo_ph']})")
+            if attacker.mana < hab["costo_mana"]:
+                faltante.append(f"MANA ({attacker.mana}/{hab['costo_mana']})")
+            await interaction.response.send_message(f"No alcanza: {', '.join(faltante)}.", ephemeral=True)
+            return
+
         target = next((f for f in session.fighters if f.name.lower() == objetivo.lower() and f.alive), None)
         if not target or target.team == attacker.team:
             await interaction.response.send_message("Objetivo inválido.", ephemeral=True)
             return
 
-        if attacker.ph < costo_ph or attacker.mana < costo_mana:
-            faltante = []
-            if attacker.ph < costo_ph:
-                faltante.append(f"PH ({attacker.ph}/{costo_ph})")
-            if attacker.mana < costo_mana:
-                faltante.append(f"MANA ({attacker.mana}/{costo_mana})")
-            await interaction.response.send_message(
-                f"No alcanza: {', '.join(faltante)}.", ephemeral=True
-            )
-            return
+        attacker.ph -= hab["costo_ph"]
+        attacker.mana -= hab["costo_mana"]
 
-        attacker.ph -= costo_ph
-        attacker.mana -= costo_mana
-
-        # A diferencia de /atacar, el daño de una habilidad ya es el valor
-        # que definiste al usarla. No se le resta la defensa del objetivo
-        # porque ese número ya representa el efecto final de la habilidad.
-        damage = max(1, dano)
+        # Daño elemental: RES + modificador de la habilidad.
+        # No se resta ninguna resistencia pasiva del objetivo: las resistencias
+        # elementales solo existen mientras hay una habilidad defensiva activa
+        # (eso se resuelve en la etapa de defensas elementales).
+        damage = max(1, attacker.res + hab["modificador_dano"])
         if target.is_defending:
             damage = max(1, damage // 2)
             target.is_defending = False
         target.vit = max(0, target.vit - damage)
 
         result_line = (
-            f"✨ **{attacker.name}** usa **{nombre}** contra **{target.name}** "
-            f"causando **{damage}** de daño. (−{costo_ph} PH  −{costo_mana} MANA)"
+            f"✨ **{attacker.name}** usa **{hab['nombre']}** contra **{target.name}** "
+            f"causando **{damage}** de daño. (−{hab['costo_ph']} PH  −{hab['costo_mana']} MANA)"
         )
 
         if session.is_over():
