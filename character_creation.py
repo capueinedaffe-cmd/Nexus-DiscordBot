@@ -20,6 +20,7 @@ with open("config.json") as f:
     CONFIG = json.load(f)
 STAT_CONFIG = CONFIG["STAT_CONFIG"]
 TOTAL_POINTS = CONFIG["TOTAL_POINTS"]
+OWNER_ID = CONFIG.get("OWNER_ID")
 STAT_ORDER = list(STAT_CONFIG.keys())
 with open("elements.json") as f:
     ELEMENTS_DATA = json.load(f)
@@ -204,7 +205,7 @@ class TypeSelectView(discord.ui.View):
 
     @discord.ui.button(label="NPC", style=discord.ButtonStyle.secondary)
     async def as_npc(self, interaction: discord.Interaction, button: discord.ui.Button):
-        view = ElementSelectView(self.owner_id, self.name, is_npc=False)
+        view = ElementSelectView(self.owner_id, self.name, is_npc=True)
         await interaction.response.edit_message(content="Elegí el elemento innato:", embed=None, view=view)
 
 # ── Modal para pedir el nombre ───────────────────────────────────────
