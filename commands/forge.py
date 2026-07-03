@@ -7,9 +7,9 @@ de materiales del inventario del personaje.
 
 import discord
 from discord import app_commands
-from store/characters_store import get_character, get_user_characters
-from store/items_store import MATERIALES, get_inventory, remove_material
-from store/equipment_store import EQUIPAMENTO, add_equipment
+from store.characters_store import get_character, get_user_characters
+from store.items_store import MATERIALES, get_inventory, remove_material
+from store.equipment_store import EQUIPAMENTO, add_equipment
 
 PAGE_SIZE = 5
 
