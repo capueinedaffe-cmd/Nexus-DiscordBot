@@ -1,7 +1,7 @@
 # abilities_store.py
 import json
 
-with open("data/abilities.json", encoding="utf-8") as f:
+with open("abilities.json", encoding="utf-8") as f:
     _DATA = json.load(f)
 
 HABILIDADES = _DATA["habilidades"]
