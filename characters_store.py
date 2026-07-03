@@ -22,6 +22,21 @@ class Character:
         self.res = row["res"]
         self.agi = row["agi"]
         self.elemento = row["elemento"]
+        self.victorias = row.get("victorias", 0)
+        self.derrotas = row.get("derrotas", 0)
+
+        raw_maestria = row.get("maestria_usos")
+        if isinstance(raw_maestria, str):
+            self.maestria_usos = json.loads(raw_maestria) if raw_maestria else {}
+        elif isinstance(raw_maestria, dict):
+            self.maestria_usos = raw_maestria
+        else:
+            self.maestria_usos = {}
+
+    def maestria_nivel(self, elemento=None):
+        elemento = elemento or self.elemento
+        usos = self.maestria_usos.get(elemento, 0)
+        return min(10, usos // 10)
 
     @property
     def ph_max(self):
