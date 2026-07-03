@@ -21,7 +21,7 @@ with open("config.json") as f:
 STAT_CONFIG = CONFIG["STAT_CONFIG"]
 TOTAL_POINTS = CONFIG["TOTAL_POINTS"]
 STAT_ORDER = list(STAT_CONFIG.keys())
-with open("data/elements.json") as f:
+with open("elements.json") as f:
     ELEMENTS_DATA = json.load(f)
 ELEMENTOS = ELEMENTS_DATA["elementos"]
 ELEMENTOS_NOMBRES = ELEMENTS_DATA["nombres"]
