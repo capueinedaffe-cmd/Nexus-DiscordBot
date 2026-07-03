@@ -62,5 +62,17 @@ async def init_db():
             ADD COLUMN IF NOT EXISTS derrotas INTEGER NOT NULL DEFAULT 0,
             ADD COLUMN IF NOT EXISTS maestria_usos JSONB NOT NULL DEFAULT '{}'::jsonb
         ''')
+
+        # Columna nueva para equipamento e ID de personajes
+        await conn.execute('''
+            CREATE TABLE IF NOT EXISTS character_materials (
+                id SERIAL PRIMARY KEY,
+                character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+                material_id TEXT NOT NULL,
+                cantidad INTEGER NOT NULL DEFAULT 0,
+                UNIQUE(character_id, material_id)
+            )
+        ''')
+        
     finally:
         await conn.close()
