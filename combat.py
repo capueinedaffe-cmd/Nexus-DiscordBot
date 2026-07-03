@@ -125,6 +125,7 @@ class Fighter:
 
         self.transformado = False
         self.transformacion_activa = None
+        self.ph = min(self.ph, self.ph_max)  # Clampear PH al nuevo máximo
         self.elemento_vulnerable = None
 
     def procesar_drain_transformacion(self):
@@ -326,6 +327,10 @@ class CombatSession:
 
     def owner_ids(self):
         return set(f.owner_id for f in self.fighters)
+
+    def team_owner_ids(self, team):
+        """Devuelve los owner_ids únicos del equipo especificado."""
+        return set(f.owner_id for f in self.fighters if f.team == team)
 
     @property
     def current(self):
