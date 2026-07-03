@@ -15,6 +15,7 @@ from discord.ext import commands
 from discord import app_commands
 from config import OWNER_ID
 from perfil import setup_profile_commands
+from items import setup_item_commands
 
 # ── Configurar logging ─────────────────────────────────────────────
 logging.basicConfig(
@@ -101,6 +102,12 @@ try:
     logger.info("✅ Comando de perfil registrado")
 except Exception as e:
     logger.error(f"❌ Error registrando perfil: {e}", exc_info=True)
+
+try:
+    setup_item_commands(bot)
+    logger.info("✅ Comandos de items registrados")
+except Exception as e:
+    logger.error(f"❌ Error registrando items: {e}", exc_info=True)
     
 logger.info("=== FIN REGISTRO DE COMANDOS ===")
 
