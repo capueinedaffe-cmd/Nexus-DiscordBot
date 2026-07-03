@@ -1,5 +1,5 @@
 {
-  "_nota": "Editá 'efectividad' para definir qué tan bien le pega cada elemento a cada otro. Valores: efectivo | neutral | no_efectivo. 'opuestos' se usa para la vulnerabilidad al transformarse (null = sin opuesto).",
+  "_nota": "Banco de elementos. Cada clave es un id único (sin espacios). 'nombres' es la etiqueta que ve el usuario. 'opuestos' define qué elemento es débil contra qué. 'efectividad' define el multiplicador de daño (efectivo=x1.5, neutral=x1.0, no_efectivo=x0.5).",
   "elementos": [
     "radiacion",
     "ion",
@@ -143,7 +143,7 @@
       "natura": "efectivo",
       "mortis": "efectivo",
       "orden": "neutral",
-      "caos": "neutral"
+      "caos": "efectivo"
     },
     "caos": {
       "radiacion": "efectivo",
@@ -154,7 +154,7 @@
       "hadron": "efectivo",
       "natura": "efectivo",
       "mortis": "efectivo",
-      "orden": "neutral",
+      "orden": "efectivo",
       "caos": "neutral"
     }
   }
