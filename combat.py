@@ -25,11 +25,18 @@ Reglas de decisión tomadas por ausencia de especificación exacta:
 import time
 import random
 import discord
+import json
+with open("data/elements.json", encoding="utf-8") as f:
+    ELEMENTS_DATA = json.load(f)
+
 from discord import app_commands
 from discord.ext import tasks
 
 from config import OWNER_ID
-from characters_store import get_character, get_user_characters, apply_level_penalty
+from characters_store import (
+    get_character, get_user_characters, apply_level_penalty,
+    get_character_transformations,
+)
 from abilities_store import get_ability, min_level_for
 
 TURN_TIMEOUT_SECONDS = 10 * 60   # 10 minutos
@@ -64,12 +71,12 @@ async def _publish(interaction: discord.Interaction, container, embed: discord.E
 
 # ── Combatiente en vivo dentro de un combate ────────────────────────
 class Fighter:
-    def __init__(self, character, team):
-        self.character = character          # referencia a la ficha permanente
+    def __init__(self, character, team, transformaciones=None):
+        self.character = character
         self.owner_id = character.owner_id
         self.name = character.name
         self.is_npc = character.is_npc
-        self.team = team                    # 0 o 1
+        self.team = team
 
         self.vit_max = character.vit_max
         self.vit = character.vit_max
@@ -78,10 +85,59 @@ class Fighter:
         self.fue = character.fue
         self.res = character.res
         self.agi = character.agi
-        self.ph = 0
         self.elemento = character.elemento
         self.level = character.level
+        self.ph = 0  # se pisa abajo, queda así para no romper el orden de ph_max
+        self.ph = self.ph_max
         self.is_defending = False
+
+        # Transformaciones precargadas para no golpear la BD en pleno combate
+        self.transformaciones = {t["name"].lower(): t for t in (transformaciones or [])}
+        self.transformado = False
+        self.transformacion_activa = None
+        self.elemento_vulnerable = None  # se usa recién en la Etapa 5
+
+    def activar_transformacion(self, trans):
+        self.transformado = True
+        self.transformacion_activa = trans
+
+        self.vit_max += trans["stat_bonus_vit"]
+        self.vit += trans["stat_bonus_vit"]
+        self.mana_max += trans["stat_bonus_mana"]
+        self.mana += trans["stat_bonus_mana"]
+        self.fue += trans["stat_bonus_fue"]
+        self.res += trans["stat_bonus_res"]
+        self.agi += trans["stat_bonus_agi"]
+
+        self.ph = min(self.ph_max, self.ph + 3)  # bonus fijo de activación
+        self.elemento_vulnerable = ELEMENTS_DATA["opuestos"].get(trans["element"])
+
+    def desactivar_transformacion(self):
+        trans = self.transformacion_activa
+        self.vit_max -= trans["stat_bonus_vit"]
+        self.vit = min(self.vit, self.vit_max)
+        self.mana_max -= trans["stat_bonus_mana"]
+        self.mana = max(0, min(self.mana, self.mana_max))
+        self.fue -= trans["stat_bonus_fue"]
+        self.res -= trans["stat_bonus_res"]
+        self.agi -= trans["stat_bonus_agi"]
+
+        self.transformado = False
+        self.transformacion_activa = None
+        self.elemento_vulnerable = None
+
+    def procesar_drain_transformacion(self):
+        """Llamar al empezar el turno de este fighter. Devuelve un mensaje si la forma se rompió."""
+        if not self.transformado:
+            return None
+        trans = self.transformacion_activa
+        self.mana = max(0, self.mana - 1)
+        self.ph = max(0, self.ph - trans["ph_drain_per_turn"])
+        if self.mana <= 0:
+            nombre = trans["name"]
+            self.desactivar_transformacion()
+            return f"💥 La transformación **{nombre}** de **{self.name}** se rompió al quedarse sin MANA."
+        return None
 
     @property
     def ph_max(self):
@@ -198,6 +254,7 @@ class CombatSession:
             if self.fighters[self.turn_index].alive:
                 break
         self.last_action_time = time.time()
+        return self.current_procesar_drain_transformacion()
 
     def team_alive(self, team):
         return any(f.alive for f in self.fighters if f.team == team)
@@ -289,6 +346,26 @@ async def objetivo_autocomplete(interaction: discord.Interaction, current: str):
     return [
         app_commands.Choice(name=f"{f.name} (Equipo {f.team + 1})", value=f.name)
         for f in opts if current.lower() in f.name.lower()
+    ][:25]
+
+
+async def transformacion_autocomplete(interaction: discord.Interaction, current: str):
+    session = ACTIVE_COMBATS.get(interaction.channel_id)
+    if not session:
+        return []
+    nombre_personaje = interaction.namespace.personaje
+    fighter = next(
+        (f for f in session.fighters
+         if f.owner_id == interaction.user.id
+         and (not nombre_personaje or f.name.lower() == nombre_personaje.lower())),
+        None,
+    )
+    if not fighter:
+        return []
+    return [
+        app_commands.Choice(name=t["name"], value=t["name"])
+        for t in fighter.transformaciones.values()
+        if current.lower() in t["name"].lower()
     ][:25]
 
 
@@ -442,7 +519,10 @@ def setup_combat_commands(bot):
 
         if lobby.ready_votes >= lobby.owner_ids():
             # Todos listos: iniciar el combate
-            fighters = [Fighter(char, team) for char, team in lobby.participants]
+            fighters = []
+            for char, team in lobby.participants:
+                trans_rows = await get_character_transformations(char.id)
+                fighters.append(Fighter(char, team, transformaciones=trans_rows))
             session = CombatSession(interaction.channel_id, fighters)
             ACTIVE_COMBATS[interaction.channel_id] = session
             del LOBBIES[interaction.channel_id]
@@ -502,17 +582,18 @@ def setup_combat_commands(bot):
             target.is_defending = False
 
         target.vit = max(0, target.vit - damage)
-        attacker.ph = min(attacker.ph_max, attacker.ph + 2)
-
+        ph_ganado = 2 + (1 if attacker.transformado else 0)
+        attacker.ph = min(attacker.ph_max, attacker.ph + ph_ganado)
         result_line = f"⚔️ **{attacker.name}** ataca a **{target.name}** causando **{damage}** de daño. (+2 PH)"
 
         if session.is_over():
             await _end_combat_victory(interaction, session, result_line)
             return
 
-        session.advance_turn()
+        drain_msg = session.advance_turn()
         embed = session.status_embed()
-        embed.description = result_line + "\n\n" + embed.description
+        descripcion = result_line + (f"\n\n{drain_msg}" if drain_msg else "")
+        embed.description = descripcion + "\n\n" + embed.description
         await interaction.response.send_message("Acción registrada.", ephemeral=True)
         await _publish(interaction, session, embed)
 
@@ -535,12 +616,14 @@ def setup_combat_commands(bot):
             return
 
         fighter.is_defending = True
-        fighter.ph = min(fighter.ph_max, fighter.ph + 1)
+        ph_ganado = 1 + (1 if fighter.transformado else 0)
+        fighter.ph = min(fighter.ph_max, fighter.ph + ph_ganado)
         result_line = f"🛡️ **{fighter.name}** se pone en guardia. (+1 PH)"
 
-        session.advance_turn()
+        drain_msg = session.advance_turn()
         embed = session.status_embed()
-        embed.description = result_line + "\n\n" + embed.description
+        descripcion = result_line + (f"\n\n{drain_msg}" if drain_msg else "")
+        embed.description = descripcion + "\n\n" + embed.description
         await interaction.response.send_message("Acción registrada.", ephemeral=True)
         await _publish(interaction, session, embed)
 
@@ -627,10 +710,58 @@ def setup_combat_commands(bot):
             await _end_combat_victory(interaction, session, result_line)
             return
 
-        session.advance_turn()
+        drain_msg = session.advance_turn()
+        embed = session.status_embed()
+        descripcion = result_line + (f"\n\n{drain_msg}" if drain_msg else "")
+        embed.description = descripcion + "\n\n" + embed.description
+        await interaction.response.send_message("Acción registrada.", ephemeral=True)
+        await _publish(interaction, session, embed)
+
+    # ── /transformar ───────────────────────────────────────────────────
+    @bot.tree.command(name="transformar", description="Activa una transformación (acción libre: no gasta el turno)")
+    @app_commands.describe(personaje="Tu personaje", transformacion="Transformación a activar")
+    @app_commands.autocomplete(personaje=personaje_autocomplete, transformacion=transformacion_autocomplete)
+    async def transformar(interaction: discord.Interaction, personaje: str, transformacion: str):
+        session = _get_active_session(interaction)
+        if not session:
+            await interaction.response.send_message("No hay combate activo en este canal.", ephemeral=True)
+            return
+        if session.paused:
+            await interaction.response.send_message("El combate está pausado.", ephemeral=True)
+            return
+
+        fighter, err = _validate_turn(session, interaction, personaje)
+        if err:
+            await interaction.response.send_message(err, ephemeral=True)
+            return
+
+        if fighter.transformado:
+            await interaction.response.send_message(f"**{fighter.name}** ya está transformado.", ephemeral=True)
+            return
+
+        trans = fighter.transformaciones.get(transformacion.lower())
+        if not trans:
+            await interaction.response.send_message(
+                f"**{fighter.name}** no tiene una transformación llamada **{transformacion}**.", ephemeral=True
+            )
+            return
+
+        if fighter.ph * 2 < fighter.ph_max:
+            await interaction.response.send_message(
+                f"Necesitás al menos la mitad del PH máximo para transformarte ({fighter.ph}/{fighter.ph_max}).",
+                ephemeral=True,
+            )
+            return
+
+        fighter.activar_transformacion(trans)
+        result_line = (
+            f"🔥 **{fighter.name}** se transforma en **{trans['name']}**! "
+            f"(−1 MANA y −{trans['ph_drain_per_turn']} PH por turno mientras dure)"
+        )
+
         embed = session.status_embed()
         embed.description = result_line + "\n\n" + embed.description
-        await interaction.response.send_message("Acción registrada.", ephemeral=True)
+        await interaction.response.send_message("Transformación activada. Todavía podés actuar este turno.", ephemeral=True)
         await _publish(interaction, session, embed)
 
     # ── /pausa ───────────────────────────────────────────────────
