@@ -26,7 +26,7 @@ import time
 import random
 import discord
 import json
-with open("data/elements.json", encoding="utf-8") as f:
+with open("elements.json", encoding="utf-8") as f:
     ELEMENTS_DATA = json.load(f)
 
 from discord import app_commands
