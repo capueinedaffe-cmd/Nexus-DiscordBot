@@ -54,5 +54,13 @@ async def init_db():
                 UNIQUE(character_id, name)
             )
         ''')
+
+        # Columna nueva para la cantidad de victorias, derrotas y usos del elemento del personaje para obtener maestría elemental
+        await conn.execute('''
+            ALTER TABLE characters
+            ADD COLUMN IF NOT EXISTS victorias INTEGER NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS derrotas INTEGER NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS maestria_usos JSONB NOT NULL DEFAULT '{}'::jsonb
+        ''')
     finally:
         await conn.close()
