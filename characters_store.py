@@ -89,3 +89,27 @@ async def apply_level_penalty(character: Character) -> None:
     finally:
         await conn.close()
     character.level = new_level
+
+async def get_character_transformations(character_id: int) -> List[dict]:
+    conn = await get_db_connection()
+    try:
+        rows = await conn.fetch(
+            "SELECT * FROM transformations WHERE character_id = $1", character_id
+        )
+        return [dict(row) for row in rows]
+    finally:
+        await conn.close()
+
+async def add_transformation(character_id: int, name: str, element: str,
+                              bonuses: dict, ph_drain: int, condition_text: str) -> None:
+    conn = await get_db_connection()
+    try:
+        await conn.execute('''
+            INSERT INTO transformations
+                (character_id, name, element, stat_bonus_vit, stat_bonus_mana,
+                 stat_bonus_fue, stat_bonus_res, stat_bonus_agi, ph_drain_per_turn, condition_text)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+        ''', character_id, name, element, bonuses["vit"], bonuses["mana"],
+            bonuses["fue"], bonuses["res"], bonuses["agi"], ph_drain, condition_text)
+    finally:
+        await conn.close()
