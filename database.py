@@ -31,5 +31,28 @@ async def init_db():
                 UNIQUE(owner_id, name)
             )
         ''')
+    # Columnas nuevas para el sistema de PH y elementos
+        await conn.execute('''
+            ALTER TABLE characters
+            ADD COLUMN IF NOT EXISTS ph INTEGER NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS elemento TEXT
+        ''')
+
+        await conn.execute('''
+            CREATE TABLE IF NOT EXISTS transformations (
+                id SERIAL PRIMARY KEY,
+                character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+                name TEXT NOT NULL,
+                element TEXT NOT NULL,
+                stat_bonus_vit INTEGER NOT NULL DEFAULT 0,
+                stat_bonus_mana INTEGER NOT NULL DEFAULT 0,
+                stat_bonus_fue INTEGER NOT NULL DEFAULT 0,
+                stat_bonus_res INTEGER NOT NULL DEFAULT 0,
+                stat_bonus_agi INTEGER NOT NULL DEFAULT 0,
+                ph_drain_per_turn INTEGER NOT NULL,
+                condition_text TEXT,
+                UNIQUE(character_id, name)
+            )
+        ''')
     finally:
         await conn.close()
