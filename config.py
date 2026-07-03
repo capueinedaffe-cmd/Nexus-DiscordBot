@@ -2,7 +2,12 @@
 config.py
 ---------
 Configuración compartida entre todos los módulos del bot.
-Evita imports circulares entre combat.py y character_creation.py.
+Lee valores de config.json para evitar desincronización.
 """
 
-OWNER_ID = 1255702109714776158
+import json
+
+with open("config.json") as f:
+    _CONFIG = json.load(f)
+
+OWNER_ID = _CONFIG["OWNER_ID"]
