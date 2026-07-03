@@ -69,10 +69,10 @@ async def add_character(character: Character) -> None:
     conn = await get_db_connection()
     try:
         await conn.execute('''
-            INSERT INTO characters (owner_id, name, is_npc, level, vit_max, mana_max, fue, res, agi)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            INSERT INTO characters (owner_id, name, is_npc, level, vit_max, mana_max, fue, res, agi, elemento)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         ''', character.owner_id, character.name, character.is_npc, character.level,
-            character.vit_max, character.mana_max, character.fue, character.res, character.agi)
+            character.vit_max, character.mana_max, character.fue, character.res, character.agi, character.elemento)
     finally:
         await conn.close()
 
