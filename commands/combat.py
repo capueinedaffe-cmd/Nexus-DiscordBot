@@ -929,6 +929,7 @@ def setup_combat_commands(bot):
         needed = session.owner_ids()
 
         if session.terminate_votes >= needed:
+            await _persist_combat_stats(session, {0: None, 1: None})
             del ACTIVE_COMBATS[interaction.channel_id]
             await interaction.response.send_message("🏳️ **El combate terminó por acuerdo de todos los jugadores. Sin resultado.**")
         else:
@@ -972,7 +973,7 @@ def setup_combat_commands(bot):
             )
             await interaction.response.send_message("Rendición confirmada. El combate terminó.", ephemeral=True)
             await _publish(interaction, session, embed)
-            await _persist_combat_stats(session, {winning_team: "victoria", 1 - winning_team: "derrota"})
+            await _persist_combat_stats(session, {team: "derrota", equipo_ganador: "victoria"})
             del ACTIVE_COMBATS[interaction.channel_id]
         else:
             await interaction.response.send_message(
