@@ -494,6 +494,36 @@ async def habilidad_autocomplete(interaction: discord.Interaction, current: str)
             opciones.append(app_commands.Choice(name=hab["nombre"], value=hab_id))
     return opciones[:25]
 
+
+async def tecnica_autocomplete(interaction: discord.Interaction, current: str):
+    session = ACTIVE_COMBATS.get(interaction.channel_id)
+    if not session:
+        return []
+    nombre_personaje = interaction.namespace.personaje
+    fighter = next(
+        (f for f in session.fighters
+         if f.owner_id == interaction.user.id
+         and (not nombre_personaje or f.name.lower() == nombre_personaje.lower())),
+        None,
+    )
+    if not fighter:
+        return []
+
+    opciones = []
+    for hab_id, hab in get_ability.__globals__["HABILIDADES"].items():
+        if hab.get("tipo") != "tecnica":
+            continue
+        if hab["elemento"] != fighter.elemento:
+            continue
+        if hab.get("exclusiva_transformacion"):
+            continue  # se habilita en la Etapa 4
+        if fighter.level < min_level_for(hab["tier"]):
+            continue
+        if current.lower() in hab["nombre"].lower():
+            opciones.append(app_commands.Choice(name=hab["nombre"], value=hab_id))
+    return opciones[:25]
+
+
 async def mi_personaje_lobby_autocomplete(interaction: discord.Interaction, current: str):
     chars = await get_user_characters(interaction.user.id, include_npc=True)
     return [
@@ -925,6 +955,132 @@ def setup_combat_commands(bot):
         await interaction.response.send_message("Acción registrada.", ephemeral=True)
         await _publish(interaction, session, embed)
 
+    # ── /usar_tecnica ────────────────────────────────────────────
+    @bot.tree.command(name="usar_tecnica", description="Usa una técnica híbrida (física + elemental), gasta PT, pasa el turno")
+    @app_commands.describe(personaje="Tu personaje que actúa", tecnica="Técnica a usar", objetivo="A quién ataca")
+    @app_commands.autocomplete(personaje=personaje_autocomplete, objetivo=objetivo_autocomplete, tecnica=tecnica_autocomplete)
+    async def usar_tecnica(interaction: discord.Interaction, personaje: str, tecnica: str, objetivo: str):
+        session = _get_active_session(interaction)
+        if not session:
+            await interaction.response.send_message("No hay combate activo en este canal.", ephemeral=True)
+            return
+        if session.paused:
+            await interaction.response.send_message("El combate está pausado.", ephemeral=True)
+            return
+
+        attacker, err = _validate_turn(session, interaction, personaje)
+        if err:
+            await interaction.response.send_message(err, ephemeral=True)
+            return
+
+        hab = get_ability(tecnica)
+        if not hab or hab.get("tipo") != "tecnica":
+            await interaction.response.send_message("Esa técnica no existe en el banco.", ephemeral=True)
+            return
+        if hab["elemento"] != attacker.elemento:
+            await interaction.response.send_message(
+                f"**{attacker.name}** no puede usar técnicas de otro elemento.", ephemeral=True
+            )
+            return
+        if hab.get("exclusiva_transformacion"):
+            await interaction.response.send_message(
+                "Esa técnica requiere una transformación específica (todavía no implementado).", ephemeral=True
+            )
+            return
+
+        nivel_necesario = min_level_for(hab["tier"])
+        if attacker.level < nivel_necesario:
+            await interaction.response.send_message(
+                f"Necesitás nivel {nivel_necesario} para usar **{hab['nombre']}** (tier {hab['tier']}).",
+                ephemeral=True,
+            )
+            return
+
+        target = next((f for f in session.fighters if f.name.lower() == objetivo.lower() and f.alive), None)
+        if not target or target.team == attacker.team:
+            await interaction.response.send_message("Objetivo inválido.", ephemeral=True)
+            return
+
+        # Paso 0: distancia. Una técnica usa el arma principal (si la técnica
+        # es puramente elemental y no tiene tipo_fisico, igual se valida la
+        # distancia del arma equipada porque sigue siendo un golpe con ella).
+        arma = attacker.arma_principal
+        if not cmath.puede_atacar(arma, attacker.distancia):
+            nombre_arma = arma["nombre"] if arma else "tus puños"
+            await interaction.response.send_message(
+                f"**{nombre_arma}** no puede atacar a distancia {attacker.distancia}. "
+                f"Turno perdido, usá `/moverse` primero.",
+                ephemeral=True,
+            )
+            drain_msg = session.advance_turn()
+            embed = session.status_embed()
+            texto = f"❌ **{attacker.name}** falla su técnica: distancia incorrecta."
+            embed.description = texto + (f"\n\n{drain_msg}" if drain_msg else "") + "\n\n" + embed.description
+            await _publish(interaction, session, embed)
+            return
+
+        # FUE efectiva de la técnica (un solo golpe, ver combat_math.fue_efectiva_tecnica)
+        fue_efectiva = cmath.fue_efectiva_tecnica(attacker.fue, attacker.arma_principal, attacker.arma_secundaria)
+
+        # Penalización si el arma equipada no coincide con el tipo_fisico de la técnica
+        dano_fisico, coste_pt_final = cmath.aplicar_penalizacion_tecnica(
+            fue_efectiva=fue_efectiva,
+            modificador_fisico=hab["modificador_dano"],
+            coste_pt_base=hab["coste_pt"],
+            arma=arma,
+            tipo_fisico_tecnica=hab.get("tipo_fisico"),
+        )
+
+        if attacker.ph < coste_pt_final or attacker.mana < hab["costo_mana"]:
+            faltante = []
+            if attacker.ph < coste_pt_final:
+                faltante.append(f"PT ({attacker.ph}/{coste_pt_final})")
+            if attacker.mana < hab["costo_mana"]:
+                faltante.append(f"MANA ({attacker.mana}/{hab['costo_mana']})")
+            await interaction.response.send_message(f"No alcanza: {', '.join(faltante)}.", ephemeral=True)
+            return
+
+        attacker.ph -= coste_pt_final
+        attacker.mana -= hab["costo_mana"]
+        attacker.usos_habilidad_combate += 1
+
+        # La base de daño de una técnica suma el componente físico (ya
+        # penalizado si corresponde) más RES, tal como describe la sección 6
+        # del documento físico ("FUE_efectiva + RES + modificador" para técnicas).
+        dano_base_total = dano_fisico + attacker.res
+        tipo_dano_golpe = hab.get("tipo_fisico") or (arma["tipo_dano"] if arma else TIPO_DANO_PUNOS)
+
+        texto, danio, evadido = cmath.resolver_golpe_fisico(
+            bono_dado=fue_efectiva,
+            dano_base=dano_base_total,
+            tipo_dano=tipo_dano_golpe,
+            agi_efectiva_atacante=attacker.agi_efectiva,
+            agi_efectiva_defensor=target.agi_efectiva,
+            armadura_defensor=target.armadura_combinada,
+            vit_max_defensor=target.vit_max,
+            defensor_en_guardia=target.is_defending,
+        )
+        target.is_defending = False
+        target.vit = max(0, target.vit - danio)
+        if evadido:
+            target.ph = min(target.ph_max, target.ph + 2)
+        # Nota: las técnicas NO generan PT (a diferencia de los básicos, que sí).
+
+        result_line = f"🌀 **{attacker.name}** usa **{hab['nombre']}** contra **{target.name}**. {texto}"
+        if coste_pt_final != hab["coste_pt"]:
+            result_line += f" (arma incompatible con la técnica: costo de PT duplicado a {coste_pt_final})"
+
+        if session.is_over():
+            await _end_combat_victory(interaction, session, result_line)
+            return
+
+        drain_msg = session.advance_turn()
+        embed = session.status_embed()
+        descripcion = result_line + (f"\n\n{drain_msg}" if drain_msg else "")
+        embed.description = descripcion + "\n\n" + embed.description
+        await interaction.response.send_message("Acción registrada.", ephemeral=True)
+        await _publish(interaction, session, embed)
+  
     # ── /transformar ───────────────────────────────────────────────────
     @bot.tree.command(name="transformar", description="Activa una transformación (acción libre: no gasta el turno)")
     @app_commands.describe(personaje="Tu personaje", transformacion="Transformación a activar")
