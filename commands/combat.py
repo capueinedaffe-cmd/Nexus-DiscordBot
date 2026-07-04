@@ -482,6 +482,8 @@ async def habilidad_autocomplete(interaction: discord.Interaction, current: str)
 
     opciones = []
     for hab_id, hab in get_ability.__globals__["HABILIDADES"].items():
+        if hab.get("tipo") == "tecnica":
+            continue  # las técnicas se usan con /usar_tecnica, no acá
         if hab["elemento"] != fighter.elemento:
             continue
         if hab.get("exclusiva_transformacion"):
@@ -491,7 +493,6 @@ async def habilidad_autocomplete(interaction: discord.Interaction, current: str)
         if current.lower() in hab["nombre"].lower():
             opciones.append(app_commands.Choice(name=hab["nombre"], value=hab_id))
     return opciones[:25]
-
 
 async def mi_personaje_lobby_autocomplete(interaction: discord.Interaction, current: str):
     chars = await get_user_characters(interaction.user.id, include_npc=True)
