@@ -651,7 +651,7 @@ def setup_combat_commands(bot):
         return current, None
 
     # ── /atacar ──────────────────────────────────────────────────
-    @bot.tree.command(name="atacar", description="Ataque básico (genera +2 PH), pasa el turno")
+    @bot.tree.command(name="atacar", description="Ataque básico con tu(s) arma(s) equipada(s), pasa el turno")
     @app_commands.describe(personaje="Tu personaje que ataca", objetivo="A quién atacás")
     @app_commands.autocomplete(personaje=personaje_autocomplete, objetivo=objetivo_autocomplete)
     async def atacar(interaction: discord.Interaction, personaje: str, objetivo: str):
@@ -673,24 +673,68 @@ def setup_combat_commands(bot):
             await interaction.response.send_message("Objetivo inválido.", ephemeral=True)
             return
 
-        damage_base = max(1, attacker.fue - target.defense)
-        texto, damage, evadido = resolver_ataque(attacker, target, attacker.fue, damage_base, elemento=None)
+        golpes = cmath.calcular_ataques_basicos(attacker.fue, attacker.arma_principal, attacker.arma_secundaria)
 
-        ph_ganado = 2 + (1 if attacker.transformado else 0)
-        attacker.ph = min(attacker.ph_max, attacker.ph + ph_ganado)
-        result_line = f"⚔️ **{attacker.name}** ataca a **{target.name}**. {texto}"
+        # Paso 0: distancia. Si CUALQUIERA de los golpes de este turno no
+        # puede conectar a la distancia actual, todo el ataque falla y se
+        # pierde el turno sin gastar nada más (regla del documento físico).
+        for golpe in golpes:
+            if not cmath.puede_atacar(golpe["arma"], attacker.distancia):
+                nombre_arma = golpe["arma"]["nombre"] if golpe["arma"] else "tus puños"
+                await interaction.response.send_message(
+                    f"**{nombre_arma}** no puede atacar a distancia {attacker.distancia}. "
+                    f"Turno perdido, usá `/moverse` primero.",
+                    ephemeral=True,
+                )
+                drain_msg = session.advance_turn()
+                embed = session.status_embed()
+                texto = f"❌ **{attacker.name}** falla su ataque: distancia incorrecta."
+                embed.description = texto + (f"\n\n{drain_msg}" if drain_msg else "") + "\n\n" + embed.description
+                await _publish(interaction, session, embed)
+                return
+
+        lineas_resultado = []
+        guardia_restante = target.is_defending
+        for golpe in golpes:
+            arma = golpe["arma"]
+            tipo_dano = arma["tipo_dano"] if arma else TIPO_DANO_PUNOS
+            fue_efectiva = golpe["fue_efectiva"]
+            texto, danio, evadido = cmath.resolver_golpe_fisico(
+                bono_dado=fue_efectiva,
+                dano_base=fue_efectiva,
+                tipo_dano=tipo_dano,
+                agi_efectiva_atacante=attacker.agi_efectiva,
+                agi_efectiva_defensor=target.agi_efectiva,
+                armadura_defensor=target.armadura_combinada,
+                vit_max_defensor=target.vit_max,
+                defensor_en_guardia=guardia_restante,
+            )
+            guardia_restante = False  # la guardia solo amortigua el primer golpe que la aprovecha
+            target.vit = max(0, target.vit - danio)
+
+            if evadido:
+                target.ph = min(target.ph_max, target.ph + 2)
+            else:
+                ph_ganado = 2 + (1 if attacker.transformado else 0)
+                attacker.ph = min(attacker.ph_max, attacker.ph + ph_ganado)
+
+            nombre_arma = f" con **{arma['nombre']}**" if arma else ""
+            lineas_resultado.append(f"⚔️ **{attacker.name}**{nombre_arma} → **{target.name}**: {texto}")
+
+        target.is_defending = False
+        result_line = "\n".join(lineas_resultado)
 
         if session.is_over():
             await _end_combat_victory(interaction, session, result_line)
             return
-        
+
         drain_msg = session.advance_turn()
         embed = session.status_embed()
         descripcion = result_line + (f"\n\n{drain_msg}" if drain_msg else "")
         embed.description = descripcion + "\n\n" + embed.description
         await interaction.response.send_message("Acción registrada.", ephemeral=True)
         await _publish(interaction, session, embed)
-
+      
     # ── /defender ────────────────────────────────────────────────
     @bot.tree.command(name="defender", description="Reduce el próximo golpe a la mitad (genera +1 PH), pasa el turno")
     @app_commands.describe(personaje="Tu personaje que se defiende")
