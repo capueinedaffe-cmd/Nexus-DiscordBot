@@ -16,6 +16,7 @@ from discord import app_commands
 from config import OWNER_ID
 from commands.perfil import setup_profile_commands
 from commands.items import setup_item_commands
+from commands.equip import setup_equip_commands
 
 # ── Configurar logging ─────────────────────────────────────────────
 logging.basicConfig(
@@ -115,6 +116,12 @@ try:
     logger.info("✅ Comando de forja registrado")
 except Exception as e:
     logger.error(f"❌ Error registrando forja: {e}", exc_info=True)
+
+try:
+    setup_equip_commands(bot)
+    logger.info("✅ Comando de equipar registrado")
+except Exception as e:
+    logger.error(f"❌ Error registrando equipar: {e}", exc_info=True)
     
 logger.info("=== FIN REGISTRO DE COMANDOS ===")
 
