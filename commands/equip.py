@@ -144,9 +144,12 @@ async def mi_personaje_autocomplete(interaction: discord.Interaction, current: s
 
 def setup_equip_commands(bot):
     @bot.tree.command(name="equipar", description="Cambiá el equipamento de uno de tus personajes")
-    @app_commands.describe(personaje="Personaje a equipar")
+    @app_commands.describe(
+        personaje="Personaje a equipar",
+        publico="¿Querés que el panel lo vea todo el canal? (por defecto solo vos)",
+    )
     @app_commands.autocomplete(personaje=mi_personaje_autocomplete)
-    async def equipar(interaction: discord.Interaction, personaje: str):
+    async def equipar(interaction: discord.Interaction, personaje: str, publico: bool = False):
         char = await get_character(interaction.user.id, personaje)
         if not char:
             await interaction.response.send_message(
@@ -158,4 +161,4 @@ def setup_equip_commands(bot):
         propio = [row["equipment_id"] for row in inv_rows if row["cantidad"] > 0]
 
         view = EquipSlotsView(interaction.user.id, char, propio)
-        await interaction.response.send_message(embed=view.build_embed(), view=view)
+        await interaction.response.send_message(embed=view.build_embed(), view=view, ephemeral=not publico)
