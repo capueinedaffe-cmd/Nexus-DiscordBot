@@ -85,5 +85,15 @@ async def init_db():
             )
         ''')
         
+        # Columna para equipamento 
+        await conn.execute('''
+            ALTER TABLE characters
+            ADD COLUMN IF NOT EXISTS equipo_arma TEXT,
+            ADD COLUMN IF NOT EXISTS equipo_cabeza TEXT,
+            ADD COLUMN IF NOT EXISTS equipo_torso TEXT,
+            ADD COLUMN IF NOT EXISTS equipo_piernas TEXT,
+            ADD COLUMN IF NOT EXISTS equipo_accesorio TEXT
+        ''')
+        
     finally:
         await conn.close()
