@@ -85,15 +85,33 @@ async def init_db():
             )
         ''')
         
-        # Columna para equipamento 
+        # Columna para equipamento
+        # Nota: "equipo_arma" (una sola casilla de arma) se reemplazó por dos
+        # casillas para poder soportar doble empuñadura (dos armas de una mano).
         await conn.execute('''
             ALTER TABLE characters
-            ADD COLUMN IF NOT EXISTS equipo_arma TEXT,
+            ADD COLUMN IF NOT EXISTS equipo_arma_principal TEXT,
+            ADD COLUMN IF NOT EXISTS equipo_arma_secundaria TEXT,
             ADD COLUMN IF NOT EXISTS equipo_cabeza TEXT,
             ADD COLUMN IF NOT EXISTS equipo_torso TEXT,
             ADD COLUMN IF NOT EXISTS equipo_piernas TEXT,
             ADD COLUMN IF NOT EXISTS equipo_accesorio TEXT
         ''')
+
+        # Migración: si la BD todavía tiene la columna vieja "equipo_arma" de
+        # una sola casilla, movemos ese valor a "equipo_arma_principal" antes
+        # de borrarla, para no perder el equipamento ya asignado.
+        vieja_columna = await conn.fetchval('''
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'characters' AND column_name = 'equipo_arma'
+        ''')
+        if vieja_columna:
+            await conn.execute('''
+                UPDATE characters
+                SET equipo_arma_principal = equipo_arma
+                WHERE equipo_arma_principal IS NULL AND equipo_arma IS NOT NULL
+            ''')
+            await conn.execute('ALTER TABLE characters DROP COLUMN equipo_arma')
         
     finally:
         await conn.close()
