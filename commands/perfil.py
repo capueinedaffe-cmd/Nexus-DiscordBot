@@ -8,6 +8,7 @@ del usuario o el detalle de un personaje específico.
 import discord
 from discord import app_commands
 from store.characters_store import get_user_characters
+from store.equipment_store import EQUIPAMENTO
 
 ELEMENTOS_NOMBRES = {}
 try:
@@ -47,6 +48,18 @@ def _build_character_embed(char):
     usos = char.maestria_usos.get(char.elemento, 0)
     usos_para_siguiente = 10 - (usos % 10) if nivel_maestria < 10 else 0
 
+    slots_orden = ["arma", "cabeza", "torso", "piernas", "accesorio"]
+    slot_labels = {
+        "arma": "Arma", "cabeza": "Cabeza", "torso": "Torso",
+        "piernas": "Piernas", "accesorio": "Accesorio",
+    }
+    equipo_lines = []
+    for slot in slots_orden:
+        eid = char.equipo.get(slot)
+        nombre = EQUIPAMENTO.get(eid, {}).get("nombre", eid) if eid else "Nada"
+        equipo_lines.append(f"{slot_labels[slot]}: **{nombre}**")
+    equipo_texto = "\n".join(equipo_lines)
+
     embed = discord.Embed(
         title=f"📄 {char.name}",
         description=(
@@ -57,7 +70,7 @@ def _build_character_embed(char):
             + "\n\n"
             f"**Estadísticas**\n"
             f"VIT: {char.vit_max}  |  MANA: {char.mana_max}  |  FUE: {char.fue}  |  RES: {char.res}  |  AGI: {char.agi}\n\n"
-            f"**Equipamento:** _(sistema todavía no implementado)_\n\n"
+            f"**Equipamento**\n{equipo_texto}\n\n"
             f"Victorias: **{char.victorias}**  |  Derrotas: **{char.derrotas}**"
         ),
         color=discord.Color.green(),
