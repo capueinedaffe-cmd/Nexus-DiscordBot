@@ -173,7 +173,7 @@ def setup_forge_commands(bot):
     @bot.tree.command(name="forjar", description="Abre el panel de forja de equipamento")
     @app_commands.describe(
         personaje="Personaje que va a forjar",
-        publico="Si querés que el panel lo vea todo el canal (por defecto solo vos)",
+        publico="¿Querés que el panel lo vea todo el canal? (por defecto solo vos)",
     )
     @app_commands.autocomplete(personaje=mi_personaje_autocomplete)
     async def forjar(interaction: discord.Interaction, personaje: str, publico: bool = False):
