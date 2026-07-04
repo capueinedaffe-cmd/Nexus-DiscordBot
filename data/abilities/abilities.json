@@ -1,0 +1,40 @@
+{
+  "_nota": "Banco de habilidades y técnicas. Cada clave es un id único (sin espacios). tipo: 'ataque' (elemental pura, usa MANA), 'defensa' (activa un escudo elemental, usa MANA) o 'tecnica' (híbrida física+elemental, usa PT y NO genera PT). tier: basica | intermedia | avanzada | maestra (gatillan por nivel 1/5/8/10). exclusiva_transformacion es null si aplica a cualquier personaje, o el id/nombre de la transformación si solo se usa con esa transformación. Campos exclusivos de 'tecnica': coste_pt (reemplaza a costo_ph para estas), tipo_fisico (cortante/punzante/contundente/explosivo, o null si la técnica es puramente elemental pese a ser técnica), rango (cuerpo_a_cuerpo | distancia, determina cuándo se puede usar según la distancia del combate). NOTA para el usuario: a propósito dejé 'costo_ph' sin tocar en las habilidades de tipo ataque/defensa — dijiste que vos vas a renombrar PH→PT en todo el proyecto de una sola pasada, así que no lo toqué acá para no pisarte ese trabajo.",
+  "habilidades": {
+    "ejemplo_llamarada": {
+      "nombre": "Llamarada",
+      "elemento": "radiacion",
+      "tipo_dano": "explosivo",
+      "tier": "basica",
+      "costo_ph": 1,
+      "costo_mana": 1,
+      "modificador_dano": 2,
+      "tipo": "ataque",
+      "exclusiva_transformacion": null
+    },
+    "ejemplo_escudo_nano": {
+      "nombre": "Escudo de Nano",
+      "elemento": "nano",
+      "tipo_dano": null,
+      "tier": "basica",
+      "costo_ph": 1,
+      "costo_mana": 1,
+      "modificador_dano": null,
+      "tipo": "defensa",
+      "exclusiva_transformacion": null
+    },
+    "ejemplo_golpe_igneo": {
+      "nombre": "Golpe Ígneo",
+      "elemento": "radiacion",
+      "tipo": "tecnica",
+      "tier": "intermedia",
+      "tipo_fisico": "contundente",
+      "coste_pt": 3,
+      "costo_mana": 0,
+      "modificador_dano": 5,
+      "rango": "cuerpo_a_cuerpo",
+      "exclusiva_transformacion": null,
+      "descripcion": "Golpe cargado de fuego que quema la armadura."
+    }
+  }
+}
