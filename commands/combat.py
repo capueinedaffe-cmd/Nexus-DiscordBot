@@ -198,48 +198,19 @@ class Fighter:
 
 
 # ── Mecánica de esquiva ─────────────────────────────
-GRADO_MULTIPLICADOR = {
-    "fallo_parcial": 0.5,
-    "estandar": 1.0,
-    "limpio": 1.25,
-    "critico": 1.5,
-}
-
-def tirar_grado(bono_stat):
-    """d20 + stat relevante → (nombre_grado, total)."""
-    total = random.randint(1, 20) + bono_stat
-    if total <= 8:
-        return "fallo_parcial", total
-    elif total <= 14:
-        return "estandar", total
-    elif total <= 19:
-        return "limpio", total
-    else:
-        return "critico", total
-
-
-def calcular_esquiva(atacante_agi, defensor_agi):
-    """% de esquiva del defensor según la diferencia de AGI."""
-    diff = defensor_agi - atacante_agi
-    if diff >= 0:
-        chance = 10 + 2 * diff
-    else:
-        exceso = -diff
-        if exceso <= 10:
-            chance = 10
-        else:
-            chance = 10 - 2 * (exceso - 10)
-    return max(0, min(100, chance))
-
+# tirar_grado, calcular_esquiva y GRADO_MULTIPLICADOR ahora viven en
+# combat_math.py (se usan tanto para ataques elementales como físicos).
 
 def resolver_ataque(attacker, target, bono_stat, danio_base, elemento=None):
     """
     Resuelve esquiva → escudo elemental (si aplica) → Tirada de Grado → daño.
     elemento=None significa ataque físico (ignora escudos elementales).
+    Este resolver es el de las HABILIDADES elementales puras (/usar_habilidad);
+    los ataques básicos y las técnicas usan cmath.resolver_golpe_fisico en su lugar.
     Devuelve (texto_resultado, danio_infligido, evadido_bool).
     """
     # 1. Esquiva
-    chance = calcular_esquiva(attacker.agi, target.agi)
+    chance = cmath.calcular_esquiva(attacker.agi, target.agi)
     if random.randint(1, 100) <= chance:
         target.ph = min(target.ph_max, target.ph + 2)
         return (f"💨 **{target.name}** esquiva el ataque (+2 PH).", 0, True)
@@ -261,8 +232,8 @@ def resolver_ataque(attacker, target, bono_stat, danio_base, elemento=None):
             target.escudo = None
 
     # 3. Tirada de Grado
-    grado, total = tirar_grado(bono_stat)
-    multiplicador = GRADO_MULTIPLICADOR[grado]
+    grado, total = cmath.tirar_grado(bono_stat)
+    multiplicador = cmath.GRADO_MULTIPLICADOR[grado]
 
     # 4. Vulnerabilidad por transformación al elemento opuesto
     if elemento and target.elemento_vulnerable == elemento:
