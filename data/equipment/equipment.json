@@ -1,0 +1,50 @@
+{
+  "_nota": "slot: arma | cabeza | torso | piernas | accesorio. peso: entero, se usa para calcular la penalización de AGI por carga (Peso_Total = arma(s) + cabeza + torso + piernas; los accesorios no pesan). Solo armas: manos (1 o 2), categoria (cuerpo_a_cuerpo | distancia), tipo_dano (cortante | punzante | contundente | explosivo). Solo armaduras (cabeza/torso/piernas): defensa_tipos y bloqueo_tipos, un valor por cada tipo_dano físico. Si un tipo de daño no aparece en defensa_tipos, se usa DEF_base = VIT_max/4 para ese golpe; si no aparece en bloqueo_tipos, el bloqueo para ese tipo es 0%. Los accesorios no tienen peso, manos, tipo_dano, defensa_tipos ni bloqueo_tipos.",
+  "equipamento": {
+    "espada_hierro": {
+      "nombre": "Espada de Hierro",
+      "slot": "arma",
+      "manos": 1,
+      "categoria": "cuerpo_a_cuerpo",
+      "tipo_dano": "cortante",
+      "peso": 2,
+      "descripcion": "Una espada básica de hierro forjado. Se puede combinar con otra arma de una mano o un escudo.",
+      "receta": {"hierro": 5}
+    },
+    "arco_corto": {
+      "nombre": "Arco Corto",
+      "slot": "arma",
+      "manos": 2,
+      "categoria": "distancia",
+      "tipo_dano": "punzante",
+      "peso": 2,
+      "descripcion": "Arco liviano. Requiere ambas manos y distancia ≥ 2 para poder disparar.",
+      "receta": {"hierro": 2}
+    },
+    "casco_hierro": {
+      "nombre": "Casco de Hierro",
+      "slot": "cabeza",
+      "peso": 2,
+      "defensa_tipos": {
+        "cortante": 4,
+        "punzante": 2,
+        "contundente": 5,
+        "explosivo": 1
+      },
+      "bloqueo_tipos": {
+        "cortante": 20,
+        "punzante": 10,
+        "contundente": 25,
+        "explosivo": 5
+      },
+      "descripcion": "Protección básica para la cabeza.",
+      "receta": {"hierro": 3}
+    },
+    "amuleto_ion": {
+      "nombre": "Amuleto de Ión",
+      "slot": "accesorio",
+      "descripcion": "Amuleto cargado de energía eléctrica residual. Sin peso ni bonus mecánico todavía.",
+      "receta": {"cristal_ion": 2}
+    }
+  }
+}
