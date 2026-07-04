@@ -765,6 +765,47 @@ def setup_combat_commands(bot):
         await interaction.response.send_message("Acción registrada.", ephemeral=True)
         await _publish(interaction, session, embed)
 
+    # ── /moverse ─────────────────────────────────────────────────
+    @bot.tree.command(name="moverse", description="Avanza o retrocede en distancia (consume el turno, no ataca)")
+    @app_commands.describe(personaje="Tu personaje que se mueve", direccion="Acercarse o alejarse del rival")
+    @app_commands.choices(direccion=[
+        app_commands.Choice(name="Avanzar (acercarse)", value="avanzar"),
+        app_commands.Choice(name="Retroceder (alejarse)", value="retroceder"),
+    ])
+    @app_commands.autocomplete(personaje=personaje_autocomplete)
+    async def moverse(interaction: discord.Interaction, personaje: str, direccion: app_commands.Choice[str]):
+        session = _get_active_session(interaction)
+        if not session:
+            await interaction.response.send_message("No hay combate activo en este canal.", ephemeral=True)
+            return
+        if session.paused:
+            await interaction.response.send_message("El combate está pausado.", ephemeral=True)
+            return
+
+        fighter, err = _validate_turn(session, interaction, personaje)
+        if err:
+            await interaction.response.send_message(err, ephemeral=True)
+            return
+
+        pasos = cmath.pasos_movimiento(fighter.agi_efectiva)
+        distancia_anterior = fighter.distancia
+        if direccion.value == "avanzar":
+            fighter.distancia = max(0, fighter.distancia - pasos)
+        else:
+            fighter.distancia = min(5, fighter.distancia + pasos)
+
+        result_line = (
+            f"🏃 **{fighter.name}** {direccion.name.lower()} "
+            f"({distancia_anterior} → {fighter.distancia}, {pasos} paso(s) según su AGI efectiva)."
+        )
+
+        drain_msg = session.advance_turn()
+        embed = session.status_embed()
+        descripcion = result_line + (f"\n\n{drain_msg}" if drain_msg else "")
+        embed.description = descripcion + "\n\n" + embed.description
+        await interaction.response.send_message("Acción registrada.", ephemeral=True)
+        await _publish(interaction, session, embed)
+  
     # ── /esperar ─────────────────────────────────────────────────
     @bot.tree.command(name="esperar", description="No hacés nada este turno")
     @app_commands.describe(personaje="Tu personaje que espera")
