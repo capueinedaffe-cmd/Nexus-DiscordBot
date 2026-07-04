@@ -38,11 +38,13 @@ from store.characters_store import (
     get_character_transformations, record_combat_result
 )
 from store.abilities_store import get_ability, min_level_for
+from store.equipment_store import get_equipment
+import combat_math as cmath
 
 TURN_TIMEOUT_SECONDS = 10 * 60   # 10 minutos
 LOBBY_TIMEOUT_SECONDS = 5 * 60   # 5 minutos
 MAX_PARTICIPANTS = 6             # 3 vs 3
-
+TIPO_DANO_PUNOS = "contundente"  # Daño a puño limpio
 
 async def owner_check(interaction: discord.Interaction) -> bool:
     if interaction.user.id != OWNER_ID:
@@ -93,11 +95,37 @@ class Fighter:
         self.escudo = None
         self.usos_habilidad_combate = 0
 
+        # Distancia: empieza en cuerpo a cuerpo (1) para no romper el
+        # comportamiento anterior de nadie que no use /moverse.
+        self.distancia = 1
+
+        # Armas y armadura equipadas (se resuelven acá, una sola vez al
+        # entrar en combate, para no golpear el banco de datos JSON en
+        # cada ataque). character.equipo guarda ids; get_equipment(None) = None.
+        self.arma_principal = get_equipment(character.equipo.get("arma_principal"))
+        self.arma_secundaria = get_equipment(character.equipo.get("arma_secundaria"))
+        self._piezas_armadura = [
+            get_equipment(character.equipo.get("cabeza")),
+            get_equipment(character.equipo.get("torso")),
+            get_equipment(character.equipo.get("piernas")),
+        ]
+        self.armadura_combinada = cmath.combinar_defensas(self._piezas_armadura)
+
         # Transformaciones precargadas para no golpear la BD en pleno combate
         self.transformaciones = {t["name"].lower(): t for t in (transformaciones or [])}
         self.transformado = False
         self.transformacion_activa = None
         self.elemento_vulnerable = None  # se usa recién en la Etapa 5
+
+    @property
+    def peso_total(self):
+        pesos = [self.arma_principal, self.arma_secundaria] + self._piezas_armadura
+        return cmath.calcular_peso_total(p.get("peso") if p else None for p in pesos)
+
+    @property
+    def agi_efectiva(self):
+        """AGI ya penalizada por el peso de arma(s) y armadura (solo para el sistema físico)."""
+        return cmath.calcular_agi_efectiva(self.agi, self.peso_total, self.fue)
 
     def activar_transformacion(self, trans):
         self.transformado = True
