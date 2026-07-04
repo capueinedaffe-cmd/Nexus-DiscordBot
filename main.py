@@ -8,6 +8,7 @@ El token se lee de la variable de entorno DISCORD_TOKEN,
 configurada en Railway (nunca escrita directamente en el código).
 """
 
+# NEXUS RPG DISCORD BOT V0.10
 import os
 import discord
 import logging
