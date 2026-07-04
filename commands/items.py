@@ -81,9 +81,12 @@ def setup_item_commands(bot):
         )
 
     @bot.tree.command(name="inventario", description="Mostrá los materiales de uno de tus personajes")
-    @app_commands.describe(personaje="Personaje a consultar")
+    @app_commands.describe(
+        personaje="Personaje a consultar",
+        publico="¿Querés que el panel lo vea todo el canal? (por defecto solo tú)",
+    )
     @app_commands.autocomplete(personaje=mi_personaje_autocomplete)
-    async def inventario(interaction: discord.Interaction, personaje: str):
+    async def inventario(interaction: discord.Interaction, personaje: str, publico: bool = False):
         char = await get_character(interaction.user.id, personaje)
         if not char:
             await interaction.response.send_message(
@@ -93,4 +96,4 @@ def setup_item_commands(bot):
 
         inv = await get_inventory(char.id)
         embed = _build_inventory_embed(char, inv)
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message(embed=embed, ephemeral=not publico)
