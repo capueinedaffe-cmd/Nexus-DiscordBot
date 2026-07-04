@@ -108,8 +108,9 @@ class PerfilView(discord.ui.View):
 
 def setup_profile_commands(bot):
     @bot.tree.command(name="perfil", description="Mostrá tus estadísticas globales o las de un personaje")
-    async def perfil(interaction: discord.Interaction):
+    @app_commands.describe(publico="¿Querés que el panel lo vea todo el canal? (por defecto solo tú)")
+    async def perfil(interaction: discord.Interaction, publico: bool = False):
         characters = await get_user_characters(interaction.user.id, include_npc=True)
         view = PerfilView(interaction.user.id, characters)
         embed = _build_global_embed(interaction.user, characters)
-        await interaction.response.send_message(embed=embed, view=view)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=not publico)
