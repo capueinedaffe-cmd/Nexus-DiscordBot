@@ -26,18 +26,18 @@ import time
 import random
 import discord
 import json
-with open("elements.json", encoding="utf-8") as f:
+with open("data/elements/elements.json", encoding="utf-8") as f:
     ELEMENTS_DATA = json.load(f)
 
 from discord import app_commands
 from discord.ext import tasks
 
 from config import OWNER_ID
-from characters_store import (
+from store.characters_store import (
     get_character, get_user_characters, apply_level_penalty,
     get_character_transformations, record_combat_result
 )
-from abilities_store import get_ability, min_level_for
+from store.abilities_store import get_ability, min_level_for
 
 TURN_TIMEOUT_SECONDS = 10 * 60   # 10 minutos
 LOBBY_TIMEOUT_SECONDS = 5 * 60   # 5 minutos
