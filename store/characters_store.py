@@ -135,6 +135,19 @@ async def apply_level_penalty(character: Character) -> None:
         await conn.close()
     character.level = new_level
 
+async def update_equipment(character_id: int, equipo: dict) -> None:
+    conn = await get_db_connection()
+    try:
+        await conn.execute('''
+            UPDATE characters
+            SET equipo_arma = $2, equipo_cabeza = $3, equipo_torso = $4,
+                equipo_piernas = $5, equipo_accesorio = $6
+            WHERE id = $1
+        ''', character_id, equipo.get("arma"), equipo.get("cabeza"),
+            equipo.get("torso"), equipo.get("piernas"), equipo.get("accesorio"))
+    finally:
+        await conn.close()
+
 async def get_character_transformations(character_id: int) -> List[dict]:
     conn = await get_db_connection()
     try:
