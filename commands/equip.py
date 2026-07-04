@@ -10,9 +10,10 @@ from discord import app_commands
 from store.characters_store import get_character, get_user_characters, update_equipment
 from store.equipment_store import EQUIPAMENTO, get_equipment_inventory
 
-SLOTS = ["arma", "cabeza", "torso", "piernas", "accesorio"]
+SLOTS = ["arma_principal", "arma_secundaria", "cabeza", "torso", "piernas", "accesorio"]
 SLOT_LABELS = {
-    "arma": "Arma", "cabeza": "Cabeza", "torso": "Torso",
+    "arma_principal": "Arma principal", "arma_secundaria": "Arma secundaria",
+    "cabeza": "Cabeza", "torso": "Torso",
     "piernas": "Piernas", "accesorio": "Accesorio",
 }
 
@@ -30,11 +31,34 @@ class EquipItemView(discord.ui.View):
         super().__init__(timeout=180)
         self.parent = parent
         self.slot = slot
+        self.bloqueada = False  # se pone True si la secundaria no se puede tocar (arma principal a dos manos)
+
         # "nada" siempre primero, después el equipamento propio que calce en este slot
-        self.opciones = [None] + [
-            eid for eid in parent.propio_equipamento
-            if EQUIPAMENTO.get(eid, {}).get("slot") == slot
-        ]
+        if slot == "arma_principal":
+            candidatos = [
+                eid for eid in parent.propio_equipamento
+                if EQUIPAMENTO.get(eid, {}).get("slot") == "arma"
+            ]
+        elif slot == "arma_secundaria":
+            principal_id = parent.current_equipo.get("arma_principal")
+            principal = EQUIPAMENTO.get(principal_id) if principal_id else None
+            if principal and principal.get("manos") == 2:
+                # El arma principal ocupa las dos manos: no hay nada para elegir acá.
+                candidatos = []
+                self.bloqueada = True
+            else:
+                candidatos = [
+                    eid for eid in parent.propio_equipamento
+                    if EQUIPAMENTO.get(eid, {}).get("slot") == "arma"
+                    and EQUIPAMENTO.get(eid, {}).get("manos") == 1
+                ]
+        else:
+            candidatos = [
+                eid for eid in parent.propio_equipamento
+                if EQUIPAMENTO.get(eid, {}).get("slot") == slot
+            ]
+
+        self.opciones = [None] + candidatos
         actual = parent.current_equipo.get(slot)
         self.selected_index = self.opciones.index(actual) if actual in self.opciones else 0
 
@@ -42,13 +66,21 @@ class EquipItemView(discord.ui.View):
         return interaction.user.id == self.parent.owner_id
 
     def build_embed(self):
-        lines = []
-        for i, eid in enumerate(self.opciones):
-            marker = "▶" if i == self.selected_index else " "
-            lines.append(f"{marker} {_nombre_equipo(eid)}")
+        if self.bloqueada:
+            desc = (
+                "El arma principal actual ocupa las dos manos, así que no podés "
+                "llevar una segunda arma.\n\n🔙 volvé para cambiar el arma principal."
+            )
+        else:
+            lines = []
+            for i, eid in enumerate(self.opciones):
+                marker = "▶" if i == self.selected_index else " "
+                lines.append(f"{marker} {_nombre_equipo(eid)}")
+            desc = "\n".join(lines) + "\n\n✅ confirma, 🔙 vuelve sin cambiar."
+
         return discord.Embed(
             title=f"🔧 {self.parent.character.name} — {SLOT_LABELS[self.slot]}",
-            description="\n".join(lines) + "\n\n✅ confirma, 🔙 vuelve sin cambiar.",
+            description=desc,
             color=discord.Color.blue(),
         )
 
@@ -66,7 +98,16 @@ class EquipItemView(discord.ui.View):
 
     @discord.ui.button(label="✅", style=discord.ButtonStyle.success, row=1)
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.parent.current_equipo[self.slot] = self.opciones[self.selected_index]
+        elegido = self.opciones[self.selected_index]
+        self.parent.current_equipo[self.slot] = elegido
+
+        # Si se elige un arma a dos manos como principal, la secundaria se
+        # vacía sola (no se puede sostener nada más).
+        if self.slot == "arma_principal":
+            arma = EQUIPAMENTO.get(elegido) if elegido else None
+            if not arma or arma.get("manos") == 2:
+                self.parent.current_equipo["arma_secundaria"] = None
+
         await interaction.response.edit_message(embed=self.parent.build_embed(), view=self.parent)
 
     @discord.ui.button(label="🔙", style=discord.ButtonStyle.danger, row=1)
