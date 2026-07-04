@@ -171,9 +171,12 @@ async def mi_personaje_autocomplete(interaction: discord.Interaction, current: s
 
 def setup_forge_commands(bot):
     @bot.tree.command(name="forjar", description="Abre el panel de forja de equipamento")
-    @app_commands.describe(personaje="Personaje que va a forjar")
+    @app_commands.describe(
+        personaje="Personaje que va a forjar",
+        publico="Si querés que el panel lo vea todo el canal (por defecto solo vos)",
+    )
     @app_commands.autocomplete(personaje=mi_personaje_autocomplete)
-    async def forjar(interaction: discord.Interaction, personaje: str):
+    async def forjar(interaction: discord.Interaction, personaje: str, publico: bool = False):
         char = await get_character(interaction.user.id, personaje)
         if not char:
             await interaction.response.send_message(
@@ -185,4 +188,4 @@ def setup_forge_commands(bot):
         inventario = {row["material_id"]: row["cantidad"] for row in inv_rows}
 
         view = ForgeView(interaction.user.id, char, inventario)
-        await interaction.response.send_message(embed=view.build_embed(), view=view)
+        await interaction.response.send_message(embed=view.build_embed(), view=view, ephemeral=not publico)
