@@ -26,7 +26,8 @@ class Character:
         self.derrotas = row.get("derrotas", 0)
         raw_maestria = row.get("maestria_usos")
         self.equipo = {
-            "arma": row.get("equipo_arma"),
+            "arma_principal": row.get("equipo_arma_principal"),
+            "arma_secundaria": row.get("equipo_arma_secundaria"),
             "cabeza": row.get("equipo_cabeza"),
             "torso": row.get("equipo_torso"),
             "piernas": row.get("equipo_piernas"),
@@ -140,11 +141,11 @@ async def update_equipment(character_id: int, equipo: dict) -> None:
     try:
         await conn.execute('''
             UPDATE characters
-            SET equipo_arma = $2, equipo_cabeza = $3, equipo_torso = $4,
-                equipo_piernas = $5, equipo_accesorio = $6
+            SET equipo_arma_principal = $2, equipo_arma_secundaria = $3, equipo_cabeza = $4,
+                equipo_torso = $5, equipo_piernas = $6, equipo_accesorio = $7
             WHERE id = $1
-        ''', character_id, equipo.get("arma"), equipo.get("cabeza"),
-            equipo.get("torso"), equipo.get("piernas"), equipo.get("accesorio"))
+        ''', character_id, equipo.get("arma_principal"), equipo.get("arma_secundaria"),
+            equipo.get("cabeza"), equipo.get("torso"), equipo.get("piernas"), equipo.get("accesorio"))
     finally:
         await conn.close()
 
