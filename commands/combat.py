@@ -193,6 +193,7 @@ class Fighter:
             f"HP:   {self.bar(self.vit, self.vit_max)}  {self.vit}/{self.vit_max}\n"
             f"MANA: {self.bar(self.mana, self.mana_max)}  {self.mana}/{self.mana_max}\n"
             f"PH:   {self.bar(self.ph, self.ph_max)}  {self.ph}/{self.ph_max}"
+            f"Distancia: {self.distancia}/5"
         )
 
 
