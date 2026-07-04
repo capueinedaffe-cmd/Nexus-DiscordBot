@@ -24,8 +24,15 @@ class Character:
         self.elemento = row["elemento"]
         self.victorias = row.get("victorias", 0)
         self.derrotas = row.get("derrotas", 0)
-
         raw_maestria = row.get("maestria_usos")
+        self.equipo = {
+            "arma": row.get("equipo_arma"),
+            "cabeza": row.get("equipo_cabeza"),
+            "torso": row.get("equipo_torso"),
+            "piernas": row.get("equipo_piernas"),
+            "accesorio": row.get("equipo_accesorio"),
+        }
+        
         if isinstance(raw_maestria, str):
             self.maestria_usos = json.loads(raw_maestria) if raw_maestria else {}
         elif isinstance(raw_maestria, dict):
