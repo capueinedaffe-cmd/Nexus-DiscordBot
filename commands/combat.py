@@ -39,7 +39,7 @@ from store.characters_store import (
 )
 from store.abilities_store import get_ability, min_level_for
 from store.equipment_store import get_equipment
-import combat_math as cmath
+from maths import combat_math as cmath
 
 TURN_TIMEOUT_SECONDS = 10 * 60   # 10 minutos
 LOBBY_TIMEOUT_SECONDS = 5 * 60   # 5 minutos
