@@ -121,6 +121,12 @@ async def init_db():
             ADD COLUMN IF NOT EXISTS energia INTEGER NOT NULL DEFAULT 10
         ''')
 
+        # Máximo de esencia por personaje
+        await conn.execute('''
+            ALTER TABLE characters
+            ADD COLUMN IF NOT EXISTS esencias_consumidas INTEGER NOT NULL DEFAULT 0
+        ''')
+
         # Una expedición = un hilo de Discord. thread_id es único porque
         # solo puede haber una expedición activa por hilo.
         await conn.execute('''
