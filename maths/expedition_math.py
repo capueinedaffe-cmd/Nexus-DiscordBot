@@ -96,3 +96,9 @@ def probabilidad_cocina(res_cocinero):
 
 def cocinar_exitoso(res_cocinero):
     return random.random() < probabilidad_cocina(res_cocinero)
+
+# ── Esencia ────────────────────────────────────────────────────────────
+MAX_ESENCIAS_POR_PERSONAJE = 10
+
+def puede_consumir_esencia(esencias_consumidas_actual):
+    return esencias_consumidas_actual < MAX_ESENCIAS_POR_PERSONAJE
