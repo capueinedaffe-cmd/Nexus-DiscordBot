@@ -148,6 +148,12 @@ async def init_db():
             )
         ''')
 
+        # Contador regresivo del hongo jummi
+        await conn.execute('''
+            ALTER TABLE expedition_participants
+            ADD COLUMN IF NOT EXISTS jummi_contador INTEGER NOT NULL DEFAULT 0
+        ''')
+
         # Inventario temporal de la expedición (no es de ningún personaje
         # todavía). Se copia entero a cada participante solo si hay éxito.
         await conn.execute('''
