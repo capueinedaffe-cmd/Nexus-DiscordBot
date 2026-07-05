@@ -29,7 +29,7 @@
     "roca_ferrosa": {"nombre": "Roca Ferrosa", "descripcion": "Roca con vetas de metal.", "rareza": "poco_comun"},
     "roca_arcana": {"nombre": "Roca Arcana", "descripcion": "Roca impregnada de energía arcana residual.", "rareza": "raro"},
     "hongo_fummi": {"nombre": "Hongo Fummi", "descripcion": "Comestible, seguro crudo.", "rareza": "comun", "comestible": true},
-    "hongo_jummi": {"nombre": "Hongo Jummi", "descripcion": "Venenoso si se come crudo.", "rareza": "comun", "comestible": true},
+    "hongo_jummi": {"nombre": "Hongo Jummi", "descripcion": "Venenoso si se come crudo.", "rareza": "comun", "comestible": true, "toxico_crudo": true},
     "garras_ferrosas": {"nombre": "Garras Ferrosas", "descripcion": "Garras endurecidas de lobo o arpía.", "rareza": "poco_comun"},
     "pelaje_endurecido": {"nombre": "Pelaje Endurecido", "descripcion": "Pelaje de un lobo transformado por magia arcana.", "rareza": "raro"},
     "pluma_rigida": {"nombre": "Pluma Rígida", "descripcion": "Pluma de arpía, dura como piedra.", "rareza": "raro"},
