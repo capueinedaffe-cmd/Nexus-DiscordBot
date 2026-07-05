@@ -752,6 +752,9 @@ def setup_combat_commands(bot):
             nombre_arma = f" con **{arma['nombre']}**" if arma else ""
             lineas_resultado.append(f"⚔️ **{attacker.name}**{nombre_arma} → **{target.name}**: {texto}")
 
+            if not target.alive:
+                break
+
         target.is_defending = False
         result_line = "\n".join(lineas_resultado)
 
