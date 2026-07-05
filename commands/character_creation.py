@@ -221,21 +221,11 @@ def setup_character_commands(bot):
                     ephemeral=True,
                 )
                 return
-            await interaction.response.send_modal(NameModal(advanced=False))
+            await interaction.response.send_modal(NameModal())
         except Exception as e:
             logger.error(f"Error en crear_personaje: {e}", exc_info=True)
             await interaction.response.send_message(f"Error: {e}", ephemeral=True)
-
-    @bot.tree.command(name="creacion_avanzada", description="[Solo owner] Crea un Personaje o un NPC")
-    async def creacion_avanzada(interaction: discord.Interaction):
-        try:
-            if not await owner_check_direct(interaction):
-                return
-            await interaction.response.send_modal(NameModal(advanced=True))
-        except Exception as e:
-            logger.error(f"Error en creacion_avanzada: {e}", exc_info=True)
-            await interaction.response.send_message(f"Error: {e}", ephemeral=True)
-
+    
     @bot.tree.command(name="crear_transformacion", description="Define una transformación para uno de tus personajes")
     @app_commands.describe(
         personaje="Personaje al que pertenece",
