@@ -195,3 +195,13 @@ async def reset_energia_global() -> None:
         )
     finally:
         await conn.close()
+
+async def incrementar_esencias_consumidas(character_id: int) -> int:
+    conn = await get_db_connection()
+    try:
+        return await conn.fetchval('''
+            UPDATE characters SET esencias_consumidas = esencias_consumidas + 1
+            WHERE id = $1 RETURNING esencias_consumidas
+        ''', character_id)
+    finally:
+        await conn.close()
