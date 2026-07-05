@@ -10,6 +10,7 @@ probabilidad de pista, etc.) viven en maths/expedition_math.py, no acá.
 
 import json
 from database import get_db_connection
+from store.characters_store import Character
 
 with open("data/zonas/zonas.json", encoding="utf-8") as f:
     _ZONAS_DATA = json.load(f)
