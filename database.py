@@ -112,6 +112,62 @@ async def init_db():
                 WHERE equipo_arma_principal IS NULL AND equipo_arma IS NOT NULL
             ''')
             await conn.execute('ALTER TABLE characters DROP COLUMN equipo_arma')
-        
+
+        # ── Sistema de expedición ────────────────────────────────
+        # Energía por personaje. Máximo fijo 10 (se controla en el código,
+        # no acá). No se resetea sola al salir de una expedición.
+        await conn.execute('''
+            ALTER TABLE characters
+            ADD COLUMN IF NOT EXISTS energia INTEGER NOT NULL DEFAULT 10
+        ''')
+
+        # Una expedición = un hilo de Discord. thread_id es único porque
+        # solo puede haber una expedición activa por hilo.
+        await conn.execute('''
+            CREATE TABLE IF NOT EXISTS expeditions (
+                id SERIAL PRIMARY KEY,
+                thread_id BIGINT NOT NULL UNIQUE,
+                zona_id TEXT NOT NULL,
+                estado TEXT NOT NULL DEFAULT 'activa',
+                exploraciones INTEGER NOT NULL DEFAULT 0,
+                pistas INTEGER NOT NULL DEFAULT 0,
+                arpias_derrotadas INTEGER NOT NULL DEFAULT 0,
+                evento_final_completado BOOLEAN NOT NULL DEFAULT FALSE,
+                jefe_oculto_completado BOOLEAN NOT NULL DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                finished_at TIMESTAMP
+            )
+        ''')
+
+        # Quiénes participan (para repartir la copia del loot al terminar).
+        await conn.execute('''
+            CREATE TABLE IF NOT EXISTS expedition_participants (
+                expedition_id INTEGER NOT NULL REFERENCES expeditions(id) ON DELETE CASCADE,
+                character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+                PRIMARY KEY (expedition_id, character_id)
+            )
+        ''')
+
+        # Inventario temporal de la expedición (no es de ningún personaje
+        # todavía). Se copia entero a cada participante solo si hay éxito.
+        await conn.execute('''
+            CREATE TABLE IF NOT EXISTS expedition_loot (
+                expedition_id INTEGER NOT NULL REFERENCES expeditions(id) ON DELETE CASCADE,
+                material_id TEXT NOT NULL,
+                cantidad INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (expedition_id, material_id)
+            )
+        ''')
+
+        # Conocimiento público por zona (sistema de pistas compartidas):
+        # si el líder hace público el descubrimiento, futuras expediciones
+        # a esa zona arrancan con este contador de pistas ya puesto.
+        await conn.execute('''
+            CREATE TABLE IF NOT EXISTS zona_conocimiento_publico (
+                zona_id TEXT PRIMARY KEY,
+                pistas_publicas INTEGER NOT NULL DEFAULT 0
+            )
+        ''')
+
     finally:
         await conn.close()
