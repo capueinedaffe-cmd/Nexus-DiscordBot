@@ -235,3 +235,44 @@ async def hacer_publico(zona_id: str, pistas: int) -> None:
         ''', zona_id, pistas)
     finally:
         await conn.close()
+
+# ── Build automática para enemigos ────────────────────────────────────────────────────────────
+def construir_personaje_enemigo(enemy_id: str) -> Character:
+    """
+    Arma un Character 'de mentira' para un enemigo del bestiario, sin
+    tocar la base de datos: id y owner_id quedan en None porque este
+    personaje no pertenece a nadie y no se guarda entre combates.
+    El sistema de PH/MANA queda armado igual que en un jugador para
+    poder darle habilidades/técnicas a la IA de los NPCs más adelante.
+    """
+    enemy = get_enemy(enemy_id)
+    if not enemy:
+        raise ValueError(f"No existe el enemigo '{enemy_id}' en el bestiario.")
+
+    equipo = enemy.get("equipo", {})
+    row = {
+        "id": None,
+        "owner_id": None,
+        "name": enemy["nombre"],
+        "is_npc": True,
+        "level": enemy["nivel"],
+        "vit_max": enemy["vit_max"],
+        "mana_max": enemy["mana_max"],
+        "ph": 0,
+        "fue": enemy["fue"],
+        "res": enemy["res"],
+        "agi": enemy["agi"],
+        "elemento": enemy["elemento"],
+        "victorias": 0,
+        "derrotas": 0,
+        "maestria_usos": {},
+        "equipo_arma_principal": equipo.get("arma_principal"),
+        "equipo_arma_secundaria": equipo.get("arma_secundaria"),
+        "equipo_cabeza": equipo.get("cabeza"),
+        "equipo_torso": equipo.get("torso"),
+        "equipo_piernas": equipo.get("piernas"),
+        "equipo_accesorio": equipo.get("accesorio"),
+        "energia": 10,
+        "esencias_consumidas": 0,
+    }
+    return Character(row)
