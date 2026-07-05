@@ -182,60 +182,20 @@ class StatPanelView(discord.ui.View):
         await interaction.response.edit_message(embed=final_embed, view=self)
         self.stop()
 
-
-# ── Vista intermedia: elegir Personaje o NPC (solo creación avanzada) ─
-class TypeSelectView(discord.ui.View):
-    def __init__(self, owner_id, name):
-        super().__init__(timeout=120)
-        self.owner_id = owner_id
-        self.name = name
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        return interaction.user.id == self.owner_id
-
-    @discord.ui.button(label="Personaje", style=discord.ButtonStyle.primary)
-    async def as_character(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if await count_player_characters(self.owner_id) >= MAX_CHARACTERS_PER_USER:
-            await interaction.response.edit_message(
-                content=f"Ya tenés el máximo de {MAX_CHARACTERS_PER_USER} personajes. No se puede crear otro.",
-                embed=None, view=None,
-            )
-            return
-        view = ElementSelectView(self.owner_id, self.name, is_npc=False)
-        await interaction.response.edit_message(content="Elegí el elemento innato:", embed=None, view=view)
-
-    @discord.ui.button(label="NPC", style=discord.ButtonStyle.secondary)
-    async def as_npc(self, interaction: discord.Interaction, button: discord.ui.Button):
-        view = ElementSelectView(self.owner_id, self.name, is_npc=True)
-        await interaction.response.edit_message(content="Elegí el elemento innato:", embed=None, view=view)
-
 # ── Modal para pedir el nombre ───────────────────────────────────────
 class NameModal(discord.ui.Modal, title="Nombre del personaje"):
     nombre = discord.ui.TextInput(label="Nombre", max_length=32, placeholder="Ej: Onix")
 
-    def __init__(self, advanced=False):
-        super().__init__()
-        self.advanced = advanced
-
     async def on_submit(self, interaction: discord.Interaction):
         name = str(self.nombre).strip()
-
-        if self.advanced:
-            view = TypeSelectView(interaction.user.id, name)
+        if await count_player_characters(interaction.user.id) >= MAX_CHARACTERS_PER_USER:
             await interaction.response.send_message(
-                f"**{name}** — ¿Es un Personaje o un NPC?", view=view
+                f"Ya tenés el máximo de {MAX_CHARACTERS_PER_USER} personajes.",
+                ephemeral=True,
             )
-        else:
-            if await count_player_characters(interaction.user.id) >= MAX_CHARACTERS_PER_USER:
-                await interaction.response.send_message(
-                    f"Ya tenés el máximo de {MAX_CHARACTERS_PER_USER} personajes.",
-                    ephemeral=True,
-                )
-                return
-            view = ElementSelectView(interaction.user.id, name, is_npc=False)
-            await interaction.response.send_message("Elegí el elemento innato:", view=view)
-
-# ── Autocompletado ───────────────────────────────────────────
+            return
+        view = ElementSelectView(interaction.user.id, name, is_npc=False)
+        await interaction.response.send_message("Elegí el elemento innato:", view=view)# ── Autocompletado ───────────────────────────────────────────
 
 async def mi_personaje_autocomplete(interaction: discord.Interaction, current: str):
     try:
