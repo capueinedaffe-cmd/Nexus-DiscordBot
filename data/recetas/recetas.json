@@ -1,0 +1,18 @@
+{
+  "_nota": "Recetas de cocina para /acampar. 'ingrediente_variable' es una lista de material_ids válidos, cualquiera de esa lista completa la receta. 'ingredientes_fijos' es un dict exacto material_id→cantidad que hace falta sí o sí. 'agua_opcional' en true significa que si además se gasta 1 'agua' del inventario al cocinar, el efecto se duplica (energia_con_agua en vez de energia_base) — así se traduce la regla general 'el agua duplica la recuperación de la comida consumida' sin obligar a gastar agua siempre. Probabilidad de éxito al cocinar = RES del cocinero × 10% (tope 100%). Si falla, los ingredientes (incluida el agua si se usó) se pierden igual.",
+  "recetas": {
+    "guiso": {
+      "nombre": "Guiso",
+      "ingrediente_variable": ["fruta", "baya", "papa_silvestre", "acoi", "carne", "hongo_fummi"],
+      "cantidad_variable": 1,
+      "agua_opcional": true,
+      "energia_base": 5
+    },
+    "estofado": {
+      "nombre": "Estofado",
+      "ingredientes_fijos": {"carne": 1, "papa_silvestre": 1},
+      "agua_opcional": true,
+      "energia_base": 10
+    }
+  }
+}
