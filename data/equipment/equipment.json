@@ -45,6 +45,25 @@
       "slot": "accesorio",
       "descripcion": "Amuleto cargado de energía eléctrica residual. Sin peso ni bonus mecánico todavía.",
       "receta": {"cristal_ion": 2}
+    "lanza_goblin": {
+      "nombre": "Lanza de Goblin",
+      "slot": "arma",
+      "manos": 1,
+      "categoria": "cuerpo_a_cuerpo",
+      "tipo_dano": "punzante",
+      "peso": 1,
+      "descripcion": "Lanza tosca de fabricación goblin.",
+      "receta": {"madera": 2, "hierro": 1}
+    },
+    "arco_goblin": {
+      "nombre": "Arco de Goblin",
+      "slot": "arma",
+      "manos": 2,
+      "categoria": "distancia",
+      "tipo_dano": "punzante",
+      "peso": 1,
+      "descripcion": "Arco improvisado de fabricación goblin.",
+      "receta": {"madera": 3}
     }
   }
 }
