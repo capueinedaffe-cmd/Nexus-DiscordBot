@@ -173,3 +173,24 @@ async def add_transformation(character_id: int, name: str, element: str,
             bonuses["fue"], bonuses["res"], bonuses["agi"], ph_drain, condition_text)
     finally:
         await conn.close()
+
+async def update_energia(character_id: int, nueva_energia: int) -> None:
+    conn = await get_db_connection()
+    try:
+        await conn.execute(
+            "UPDATE characters SET energia = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1",
+            character_id, nueva_energia
+        )
+    finally:
+        await conn.close()
+
+async def reset_energia_global() -> None:
+    """Usado por /energia_global: repone la energía de TODOS los personajes al máximo, sin excepción."""
+    from maths.expedition_math import ENERGIA_MAXIMA
+    conn = await get_db_connection()
+    try:
+        await conn.execute(
+            "UPDATE characters SET energia = $1, updated_at = CURRENT_TIMESTAMP", ENERGIA_MAXIMA
+        )
+    finally:
+        await conn.close()
