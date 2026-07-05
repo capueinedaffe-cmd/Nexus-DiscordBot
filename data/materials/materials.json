@@ -10,7 +10,7 @@
       "nombre": "Cristal de Ión",
       "descripcion": "Fragmento cargado de energía eléctrica residual.",
       "rareza": "raro"
-    }
+    },
     "agua": {
       "nombre": "Agua",
       "descripcion": "Se usa para cocinar. Duplica la recuperación de energía de lo que se prepare con ella.",
