@@ -26,6 +26,7 @@ class Character:
         self.derrotas = row.get("derrotas", 0)
         raw_maestria = row.get("maestria_usos")
         self.energia = row.get("energia", 10)
+        self.esencias_consumidas = row.get("esencias_consumidas", 0)
         self.equipo = {
             "arma_principal": row.get("equipo_arma_principal"),
             "arma_secundaria": row.get("equipo_arma_secundaria"),
