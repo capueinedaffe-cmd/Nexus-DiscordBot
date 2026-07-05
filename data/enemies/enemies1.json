@@ -1,0 +1,144 @@
+{
+  "_nota": "Bestiario de NPCs predefinidos para el sistema de expedición. Cada entrada se convierte en un Character/Fighter real (mismo sistema de combate que los jugadores), así que usa las mismas stats: vit_max, mana_max, fue, res, agi, elemento, nivel. 'equipo' usa los mismos ids de equipment.json que un personaje. 'huye' = no entra en combate real, el ataque simplemente lo espanta. 'neutral' = no ataca si no lo atacan primero. 'loot' = {material_id: probabilidad 0-1}. Las stats son un punto de partida, ajustalas a mano si hace falta balancear.",
+  "enemigos": {
+    "arbusto_vivo": {
+      "nombre": "Arbusto Vivo",
+      "nivel": 1, "vit_max": 8, "mana_max": 0, "fue": 2, "res": 1, "agi": 1,
+      "elemento": "natura",
+      "equipo": {},
+      "loot": {"fruta": 0.6, "baya": 0.4}
+    },
+    "goblin": {
+      "nombre": "Goblin",
+      "nivel": 1, "vit_max": 10, "mana_max": 0, "fue": 3, "res": 1, "agi": 5,
+      "elemento": "terra",
+      "equipo": {},
+      "huye": true,
+      "loot": {}
+    },
+    "pequeno_golem": {
+      "nombre": "Pequeño Golem",
+      "nivel": 3, "vit_max": 20, "mana_max": 0, "fue": 5, "res": 3, "agi": 2,
+      "elemento": "terra",
+      "equipo": {},
+      "loot": {"roca": 0.8, "roca_arcana": 0.05}
+    },
+    "goblin_lanza": {
+      "nombre": "Goblin con Lanza",
+      "nivel": 3, "vit_max": 14, "mana_max": 0, "fue": 5, "res": 1, "agi": 6,
+      "elemento": "terra",
+      "equipo": {"arma_principal": "lanza_goblin"},
+      "loot": {"lanza_goblin": 0.05}
+    },
+    "golem_de_tierra": {
+      "nombre": "Golem de Tierra",
+      "nivel": 5, "vit_max": 45, "mana_max": 0, "fue": 8, "res": 6, "agi": 2,
+      "elemento": "terra",
+      "equipo": {},
+      "jefe": true,
+      "loot": {"roca_arcana": 1.0, "roca": 1.0}
+    },
+    "lobo_ferral": {
+      "nombre": "Lobo Ferral",
+      "nivel": 6, "vit_max": 22, "mana_max": 0, "fue": 7, "res": 2, "agi": 9,
+      "elemento": "natura",
+      "equipo": {},
+      "loot": {"piel": 0.7, "garras_ferrosas": 0.2}
+    },
+    "goblin_arco": {
+      "nombre": "Goblin con Arco",
+      "nivel": 6, "vit_max": 14, "mana_max": 0, "fue": 4, "res": 1, "agi": 7,
+      "elemento": "terra",
+      "equipo": {"arma_principal": "arco_goblin"},
+      "loot": {"arco_goblin": 0.05}
+    },
+    "golem_valle": {
+      "nombre": "Pequeño Golem del Valle",
+      "nivel": 6, "vit_max": 26, "mana_max": 0, "fue": 6, "res": 4, "agi": 2,
+      "elemento": "terra",
+      "equipo": {},
+      "neutral": true,
+      "loot": {"roca": 0.8, "roca_arcana": 0.05}
+    },
+    "lobo_golem_superior": {
+      "nombre": "Lobo Golem Superior",
+      "nivel": 8, "vit_max": 60, "mana_max": 0, "fue": 10, "res": 6, "agi": 8,
+      "elemento": "terra",
+      "equipo": {},
+      "jefe": true,
+      "loot": {"pelaje_endurecido": 1.0, "garras_ferrosas": 1.0}
+    },
+    "golem_pequeno_montana": {
+      "nombre": "Golem Pequeño (Montaña)",
+      "nivel": 9, "vit_max": 30, "mana_max": 0, "fue": 6, "res": 5, "agi": 2,
+      "elemento": "terra",
+      "equipo": {},
+      "neutral": true,
+      "loot": {"roca": 0.8, "roca_arcana": 0.03}
+    },
+    "arpia_menor": {
+      "nombre": "Arpía Menor",
+      "nivel": 9, "vit_max": 24, "mana_max": 5, "fue": 6, "res": 5, "agi": 10,
+      "elemento": "hadron",
+      "equipo": {},
+      "neutral": true,
+      "cuenta_para_matriarca": true,
+      "loot_al_observar": {"gran_pluma": 0.2},
+      "loot": {}
+    },
+    "golem_mediano": {
+      "nombre": "Golem Mediano",
+      "nivel": 10, "vit_max": 42, "mana_max": 0, "fue": 9, "res": 7, "agi": 3,
+      "elemento": "terra",
+      "equipo": {},
+      "loot": {"roca": 0.8, "roca_arcana": 0.15}
+    },
+    "arpia_roca_mayor": {
+      "nombre": "Arpía de Roca Mayor",
+      "nivel": 12, "vit_max": 75, "mana_max": 10, "fue": 11, "res": 8, "agi": 11,
+      "elemento": "hadron",
+      "equipo": {},
+      "jefe": true,
+      "loot": {"pluma_rigida": 1.0, "garras_ferrosas": 1.0}
+    },
+    "matriarca_arpia_furiosa": {
+      "nombre": "Matriarca Arpía Furiosa",
+      "nivel": 16, "vit_max": 130, "mana_max": 20, "fue": 15, "res": 12, "agi": 15,
+      "elemento": "hadron",
+      "equipo": {},
+      "jefe_oculto": true,
+      "condicion_jefe_oculto": "derrotar_40_arpias_tras_evento_final",
+      "loot": {"esencia_ventolera": 1.0}
+    },
+    "golem_mediano_colinas": {
+      "nombre": "Golem Mediano (Colinas)",
+      "nivel": 14, "vit_max": 50, "mana_max": 0, "fue": 10, "res": 8, "agi": 3,
+      "elemento": "terra",
+      "equipo": {},
+      "loot": {"roca": 0.8, "roca_arcana": 0.15}
+    },
+    "arpia_menor_rocosa": {
+      "nombre": "Arpía Menor Rocosa",
+      "nivel": 14, "vit_max": 40, "mana_max": 8, "fue": 9, "res": 8, "agi": 11,
+      "elemento": "hadron",
+      "equipo": {},
+      "loot": {"pluma_rigida": 0.3, "roca": 0.4}
+    },
+    "golem_mayor": {
+      "nombre": "Golem Mayor",
+      "nivel": 15, "vit_max": 90, "mana_max": 0, "fue": 13, "res": 10, "agi": 3,
+      "elemento": "terra",
+      "equipo": {},
+      "loot": {"roca_arcana": 0.4, "roca_ferrosa": 0.6}
+    },
+    "hechicera_arcana_hellsabeth": {
+      "nombre": "Hechicera Arcana Hellsabeth",
+      "nivel": 18, "vit_max": 150, "mana_max": 40, "fue": 12, "res": 18, "agi": 14,
+      "elemento": "caos",
+      "equipo": {},
+      "jefe": true,
+      "jefe_narrativo": true,
+      "loot": {}
+    }
+  }
+}
