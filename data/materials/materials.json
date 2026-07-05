@@ -34,6 +34,13 @@
     "pelaje_endurecido": {"nombre": "Pelaje Endurecido", "descripcion": "Pelaje de un lobo transformado por magia arcana.", "rareza": "raro"},
     "pluma_rigida": {"nombre": "Pluma Rígida", "descripcion": "Pluma de arpía, dura como piedra.", "rareza": "raro"},
     "gran_pluma": {"nombre": "Gran Pluma", "descripcion": "Pluma excepcional de una arpía menor observada, no atacada.", "rareza": "raro"},
-    "esencia_ventolera": {"nombre": "Esencia Ventolera", "descripcion": "Esencia que aumenta la agilidad. Consumo global máximo: 10.", "rareza": "legendario"}
+    "esencia_ventolera": {
+      "nombre": "Esencia Ventolera",
+      "descripcion": "Esencia que aumenta la agilidad. Máximo 10 consumos por personaje (el tope se comparte con cualquier otra esencia).",
+      "rareza": "legendario",
+      "es_esencia": true,
+      "stat_afectada": "agi",
+      "bonus": 1
+    }
   }
 }
