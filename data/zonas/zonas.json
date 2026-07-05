@@ -1,0 +1,140 @@
+{
+  "_nota": "Zonas de la Región 1 (Propuesta de expedición v0.11). Cada zona es un hilo de Discord dentro del canal de la región. 'recursos': nodos que se pueden encontrar al explorar (material_id + cantidad + 'peso' = qué tan frecuente es, no una probabilidad exacta, se usa para un sorteo ponderado). 'enemigos': ids de data/enemies/enemies1.json con su propio 'peso' de aparición. 'pista': probabilidad de encontrar una pista al explorar, después del mínimo de exploraciones (prob_base + incremento acumulativo por exploración extra). 'siguiente_zona' es null en la última zona (cierra con cliffhanger, todavía no hay región 2).",
+  "zonas": {
+    "praderas": {
+      "nombre": "Praderas",
+      "orden": 1,
+      "es_tutorial": true,
+      "recursos": [
+        {"material_id": "fruta", "cantidad_min": 1, "cantidad_max": 2, "peso": 5},
+        {"material_id": "roca", "cantidad_min": 1, "cantidad_max": 1, "peso": 3}
+      ],
+      "enemigos": [
+        {"enemy_id": "arbusto_vivo", "peso": 5},
+        {"enemy_id": "goblin", "peso": 3}
+      ],
+      "pista": {"exploraciones_minimas": 3, "prob_base": 1.0, "incremento": 0.0},
+      "pistas_necesarias": 3,
+      "evento_final": {
+        "tipo": "sin_jefe",
+        "descripcion": "Al reunir las pistas necesarias, el grupo avanza libremente a la siguiente zona."
+      },
+      "siguiente_zona": "bosque"
+    },
+    "bosque": {
+      "nombre": "Bosque",
+      "orden": 2,
+      "recursos": [
+        {"material_id": "agua", "cantidad_min": 1, "cantidad_max": 1, "peso": 3},
+        {"material_id": "baya", "cantidad_min": 1, "cantidad_max": 2, "peso": 4},
+        {"material_id": "papa_silvestre", "cantidad_min": 1, "cantidad_max": 2, "peso": 3},
+        {"material_id": "madera", "cantidad_min": 1, "cantidad_max": 2, "peso": 4},
+        {"material_id": "roca", "cantidad_min": 1, "cantidad_max": 1, "peso": 2},
+        {"material_id": "piel", "cantidad_min": 1, "cantidad_max": 1, "peso": 2},
+        {"material_id": "carne", "cantidad_min": 1, "cantidad_max": 1, "peso": 2}
+      ],
+      "enemigos": [
+        {"enemy_id": "arbusto_vivo", "peso": 4},
+        {"enemy_id": "pequeno_golem", "peso": 3},
+        {"enemy_id": "goblin", "peso": 3},
+        {"enemy_id": "goblin_lanza", "peso": 1}
+      ],
+      "pista": {"exploraciones_minimas": 3, "prob_base": 0.10, "incremento": 0.10},
+      "pistas_necesarias": 3,
+      "evento_final": {
+        "tipo": "jefe",
+        "enemy_id": "golem_de_tierra",
+        "narrativa": "Aparece la Hechicera Arcana. Ha creado un Golem de tierra. Ella se retira sin hablar.",
+        "loot_garantizado": ["roca_arcana", "roca"]
+      },
+      "siguiente_zona": "valle"
+    },
+    "valle": {
+      "nombre": "Valle",
+      "orden": 3,
+      "recursos": [
+        {"material_id": "agua", "cantidad_min": 1, "cantidad_max": 1, "peso": 3},
+        {"material_id": "acoi", "cantidad_min": 1, "cantidad_max": 2, "peso": 3},
+        {"material_id": "roca", "cantidad_min": 1, "cantidad_max": 1, "peso": 2},
+        {"material_id": "cuarzo", "cantidad_min": 1, "cantidad_max": 1, "peso": 2},
+        {"material_id": "piel", "cantidad_min": 1, "cantidad_max": 1, "peso": 2},
+        {"material_id": "carne", "cantidad_min": 1, "cantidad_max": 1, "peso": 2}
+      ],
+      "enemigos": [
+        {"enemy_id": "lobo_ferral", "peso": 4},
+        {"enemy_id": "goblin", "peso": 2},
+        {"enemy_id": "goblin_lanza", "peso": 2},
+        {"enemy_id": "goblin_arco", "peso": 2},
+        {"enemy_id": "golem_valle", "peso": 3}
+      ],
+      "pista": {"exploraciones_minimas": 3, "prob_base": 0.10, "incremento": 0.10},
+      "pistas_necesarias": 3,
+      "evento_final": {
+        "tipo": "jefe",
+        "enemy_id": "lobo_golem_superior",
+        "narrativa": "La Hechicera convierte al líder de los lobos en un Lobo Golem Superior. Se retira sin decir nada.",
+        "loot_garantizado": ["pelaje_endurecido", "garras_ferrosas"]
+      },
+      "siguiente_zona": "montana"
+    },
+    "montana": {
+      "nombre": "Montaña",
+      "orden": 4,
+      "recursos": [
+        {"material_id": "hongo_fummi", "cantidad_min": 1, "cantidad_max": 2, "peso": 4},
+        {"material_id": "hongo_jummi", "cantidad_min": 1, "cantidad_max": 1, "peso": 2},
+        {"material_id": "roca", "cantidad_min": 1, "cantidad_max": 1, "peso": 3},
+        {"material_id": "cuarzo", "cantidad_min": 1, "cantidad_max": 1, "peso": 2},
+        {"material_id": "roca_ferrosa", "cantidad_min": 1, "cantidad_max": 1, "peso": 2}
+      ],
+      "enemigos": [
+        {"enemy_id": "golem_pequeno_montana", "peso": 3},
+        {"enemy_id": "golem_mediano", "peso": 3},
+        {"enemy_id": "arpia_menor", "peso": 2}
+      ],
+      "pista": {"exploraciones_minimas": 3, "prob_base": 0.10, "incremento": 0.10},
+      "pistas_necesarias": 3,
+      "evento_final": {
+        "tipo": "jefe",
+        "enemy_id": "arpia_roca_mayor",
+        "narrativa": "La Hechicera observa a lo lejos y se va, sin intervenir esta vez.",
+        "loot_garantizado": ["pluma_rigida", "garras_ferrosas"]
+      },
+      "jefe_oculto": {
+        "enemy_id": "matriarca_arpia_furiosa",
+        "condicion": "derrotar_40_arpias_menores_tras_evento_final",
+        "arpias_necesarias": 40,
+        "un_solo_intento": true,
+        "si_pierden": "la_matriarca_se_retira_hay_que_derrotar_40_arpias_de_nuevo",
+        "recompensa_al_ganar": "esencia_ventolera"
+      },
+      "siguiente_zona": "colinas_retumbantes"
+    },
+    "colinas_retumbantes": {
+      "nombre": "Colinas Retumbantes",
+      "orden": 5,
+      "recursos": [
+        {"material_id": "roca", "cantidad_min": 1, "cantidad_max": 2, "peso": 4},
+        {"material_id": "cuarzo", "cantidad_min": 1, "cantidad_max": 1, "peso": 3},
+        {"material_id": "roca_ferrosa", "cantidad_min": 1, "cantidad_max": 1, "peso": 3},
+        {"material_id": "roca_arcana", "cantidad_min": 1, "cantidad_max": 1, "peso": 1}
+      ],
+      "enemigos": [
+        {"enemy_id": "golem_mediano_colinas", "peso": 3},
+        {"enemy_id": "arpia_menor_rocosa", "peso": 3},
+        {"enemy_id": "golem_mayor", "peso": 2}
+      ],
+      "pista": {"exploraciones_minimas": 3, "prob_base": 0.10, "incremento": 0.10},
+      "pistas_necesarias": 3,
+      "evento_final": {
+        "tipo": "jefe_narrativo",
+        "enemy_id": "hechicera_arcana_hellsabeth",
+        "narrativa_pre": "Hellsabeth revela su nombre, su afiliación con la Academia Varmilion y su motivo.",
+        "narrativa_post": "Al 'derrotarla', el pentagrama se completa pero no se activa: ella se contuvo. Frase final: 'Sois fuertes, pero la fuerza no lo es todo. Que el dios Nermille os guíe en vuestra cruzada.' Se retira con un hechizo.",
+        "loot_garantizado": [],
+        "no_suelta_nada": true
+      },
+      "siguiente_zona": null
+    }
+  }
+}
