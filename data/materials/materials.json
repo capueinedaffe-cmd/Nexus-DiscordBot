@@ -25,6 +25,7 @@
     "carne": {"nombre": "Carne", "descripcion": "Carne de conejo u otra presa.", "rareza": "comun"},
     "piel": {"nombre": "Piel", "descripcion": "Piel de conejo o lobo.", "rareza": "comun"},
     "cuarzo": {"nombre": "Cuarzo", "descripcion": "Cristal de cuarzo.", "rareza": "poco_comun"},
+    "roca": {"nombre": "Roca", "descripcion": "Roca común de cualquier terreno.", "rareza": "comun"},
     "roca_ferrosa": {"nombre": "Roca Ferrosa", "descripcion": "Roca con vetas de metal.", "rareza": "poco_comun"},
     "roca_arcana": {"nombre": "Roca Arcana", "descripcion": "Roca impregnada de energía arcana residual.", "rareza": "raro"},
     "hongo_fummi": {"nombre": "Hongo Fummi", "descripcion": "Comestible, seguro crudo.", "rareza": "comun"},
