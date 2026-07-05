@@ -45,6 +45,7 @@
       "slot": "accesorio",
       "descripcion": "Amuleto cargado de energía eléctrica residual. Sin peso ni bonus mecánico todavía.",
       "receta": {"cristal_ion": 2}
+    },
     "lanza_goblin": {
       "nombre": "Lanza de Goblin",
       "slot": "arma",
