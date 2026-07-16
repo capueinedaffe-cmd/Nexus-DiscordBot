@@ -34,6 +34,7 @@ from database import init_db
 from commands.character_creation import setup_character_commands
 from commands.combat import setup_combat_commands, start_background_tasks
 from commands.forge import setup_forge_commands
+from events import setup_test_event_commands
 
 # ── Configuración básica ──��───────────────────────────────────────
 TOKEN = os.environ.get("DISCORD_TOKEN")
@@ -127,6 +128,12 @@ try:
     logger.info("✅ Comando de equipar registrado")
 except Exception as e:
     logger.error(f"❌ Error registrando equipar: {e}", exc_info=True)
+
+try:
+    setup_test_event_commands(bot)
+    logger.info("✅ Comando de prueba de eventos registrado")
+except Exception as e:
+    logger.error(f"❌ Error registrando eventos de prueba: {e}", exc_info=True)
     
 logger.info("=== FIN REGISTRO DE COMANDOS ===")
 
