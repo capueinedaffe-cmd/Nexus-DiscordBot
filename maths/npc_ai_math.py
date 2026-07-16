@@ -22,7 +22,7 @@ Devuelve siempre un dict con la forma:
   {"accion": "esperar"}  # solo si no hay ningún objetivo vivo (no debería pasar en un combate normal)
 """
 
-import combat_math as cmath
+from maths import combat_math as cmath
 
 
 def elegir_objetivo(npc, objetivos_posibles):
