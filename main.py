@@ -14,6 +14,10 @@ import discord
 import logging
 from discord.ext import commands
 from discord import app_commands
+from dotenv import load_dotenv
+‎
+‎load_dotenv()  # Carga las variables de .env (DISCORD_TOKEN) — reemplaza lo que antes ponía Railway
+
 from config import OWNER_ID
 from commands.perfil import setup_profile_commands
 from commands.items import setup_item_commands
