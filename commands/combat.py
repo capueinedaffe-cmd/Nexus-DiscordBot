@@ -41,7 +41,7 @@ from store.abilities_store import get_ability, min_level_for
 from store.equipment_store import get_equipment
 from maths import combat_math as cmath
 from maths.npc_ai_math import decidir_turno
-from store.expedition_store import construir_personaje_enemigo
+from store.expedition_store import construir_personaje_enemigo, armar_oleadas_arpias, ARPIAS_POR_OLEADA
 
 TURN_TIMEOUT_SECONDS = 10 * 60   # 10 minutos
 LOBBY_TIMEOUT_SECONDS = 5 * 60   # 5 minutos
