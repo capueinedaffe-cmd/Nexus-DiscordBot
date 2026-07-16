@@ -8,12 +8,13 @@ with open("config.json") as f:
     CONFIG = json.load(f)
 MAX_CHARACTERS_PER_USER = CONFIG["MAX_CHARACTERS_PER_USER"]
 
+
 class Character:
     def __init__(self, row):
         self.id = row["id"]
         self.owner_id = row["owner_id"]
         self.name = row["name"]
-        self.is_npc = row["is_npc"]
+        self.is_npc = bool(row["is_npc"])  # SQLite guarda 0/1, no True/False
         self.level = row["level"]
         self.vit_max = row["vit_max"]
         self.mana_max = row["mana_max"]
@@ -22,11 +23,19 @@ class Character:
         self.res = row["res"]
         self.agi = row["agi"]
         self.elemento = row["elemento"]
-        self.victorias = row.get("victorias", 0)
-        self.derrotas = row.get("derrotas", 0)
+        self.energia = row["energia"] if row.get("energia") is not None else 10
+        self.esencias_consumidas = row.get("esencias_consumidas", 0) or 0
+        self.victorias = row.get("victorias", 0) or 0
+        self.derrotas = row.get("derrotas", 0) or 0
+
         raw_maestria = row.get("maestria_usos")
-        self.energia = row.get("energia", 10)
-        self.esencias_consumidas = row.get("esencias_consumidas", 0)
+        if isinstance(raw_maestria, str):
+            self.maestria_usos = json.loads(raw_maestria) if raw_maestria else {}
+        elif isinstance(raw_maestria, dict):
+            self.maestria_usos = raw_maestria
+        else:
+            self.maestria_usos = {}
+
         self.equipo = {
             "arma_principal": row.get("equipo_arma_principal"),
             "arma_secundaria": row.get("equipo_arma_secundaria"),
@@ -35,13 +44,6 @@ class Character:
             "piernas": row.get("equipo_piernas"),
             "accesorio": row.get("equipo_accesorio"),
         }
-        
-        if isinstance(raw_maestria, str):
-            self.maestria_usos = json.loads(raw_maestria) if raw_maestria else {}
-        elif isinstance(raw_maestria, dict):
-            self.maestria_usos = raw_maestria
-        else:
-            self.maestria_usos = {}
 
     def maestria_nivel(self, elemento=None):
         elemento = elemento or self.elemento
@@ -56,50 +58,63 @@ class Character:
     def defense(self):
         return self.vit_max // 4
 
+
 # --- Funciones de acceso a datos (TODAS async) ---
 
 async def count_player_characters(owner_id: int) -> int:
     conn = await get_db_connection()
     try:
-        return await conn.fetchval(
-            "SELECT COUNT(*) FROM characters WHERE owner_id = $1 AND is_npc = FALSE",
-            owner_id
+        cursor = await conn.execute(
+            "SELECT COUNT(*) as total FROM characters WHERE owner_id = ? AND is_npc = 0",
+            (owner_id,)
         )
+        row = await cursor.fetchone()
+        return row["total"]
     finally:
         await conn.close()
+
 
 async def get_user_characters(owner_id: int, include_npc: bool = True) -> List[Character]:
     conn = await get_db_connection()
     try:
         if include_npc:
-            rows = await conn.fetch("SELECT * FROM characters WHERE owner_id = $1", owner_id)
+            cursor = await conn.execute("SELECT * FROM characters WHERE owner_id = ?", (owner_id,))
         else:
-            rows = await conn.fetch("SELECT * FROM characters WHERE owner_id = $1 AND is_npc = FALSE", owner_id)
+            cursor = await conn.execute(
+                "SELECT * FROM characters WHERE owner_id = ? AND is_npc = 0", (owner_id,)
+            )
+        rows = await cursor.fetchall()
         return [Character(dict(row)) for row in rows]
     finally:
         await conn.close()
 
+
 async def get_character(owner_id: int, name: str) -> Optional[Character]:
     conn = await get_db_connection()
     try:
-        row = await conn.fetchrow(
-            "SELECT * FROM characters WHERE owner_id = $1 AND LOWER(name) = LOWER($2)",
-            owner_id, name
+        cursor = await conn.execute(
+            "SELECT * FROM characters WHERE owner_id = ? AND LOWER(name) = LOWER(?)",
+            (owner_id, name)
         )
+        row = await cursor.fetchone()
         return Character(dict(row)) if row else None
     finally:
         await conn.close()
+
 
 async def add_character(character: Character) -> None:
     conn = await get_db_connection()
     try:
         await conn.execute('''
             INSERT INTO characters (owner_id, name, is_npc, level, vit_max, mana_max, fue, res, agi, elemento, ph)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-        ''', character.owner_id, character.name, character.is_npc, character.level,
-            character.vit_max, character.mana_max, character.fue, character.res, character.agi, character.elemento, character.ph)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (character.owner_id, character.name, int(character.is_npc), character.level,
+              character.vit_max, character.mana_max, character.fue, character.res,
+              character.agi, character.elemento, character.ph))
+        await conn.commit()
     finally:
         await conn.close()
+
 
 async def record_combat_result(character_id: int, resultado: Optional[str],
                                 usos_habilidad: int = 0, elemento: Optional[str] = None) -> None:
@@ -107,22 +122,25 @@ async def record_combat_result(character_id: int, resultado: Optional[str],
     conn = await get_db_connection()
     try:
         if resultado == "victoria":
-            await conn.execute("UPDATE characters SET victorias = victorias + 1 WHERE id = $1", character_id)
+            await conn.execute("UPDATE characters SET victorias = victorias + 1 WHERE id = ?", (character_id,))
         elif resultado == "derrota":
-            await conn.execute("UPDATE characters SET derrotas = derrotas + 1 WHERE id = $1", character_id)
+            await conn.execute("UPDATE characters SET derrotas = derrotas + 1 WHERE id = ?", (character_id,))
 
         if usos_habilidad > 0 and elemento:
-            await conn.execute('''
-                UPDATE characters
-                SET maestria_usos = jsonb_set(
-                    maestria_usos,
-                    ARRAY[$2],
-                    to_jsonb(COALESCE((maestria_usos->>$2)::int, 0) + $3)
-                )
-                WHERE id = $1
-            ''', character_id, elemento, usos_habilidad)
+            # SQLite no tiene jsonb_set: leemos, modificamos en Python, y reescribimos el TEXT completo.
+            cursor = await conn.execute("SELECT maestria_usos FROM characters WHERE id = ?", (character_id,))
+            row = await cursor.fetchone()
+            actual = json.loads(row["maestria_usos"]) if row and row["maestria_usos"] else {}
+            actual[elemento] = actual.get(elemento, 0) + usos_habilidad
+            await conn.execute(
+                "UPDATE characters SET maestria_usos = ? WHERE id = ?",
+                (json.dumps(actual), character_id)
+            )
+
+        await conn.commit()
     finally:
         await conn.close()
+
 
 async def apply_level_penalty(character: Character) -> None:
     if character.is_npc:
@@ -131,35 +149,42 @@ async def apply_level_penalty(character: Character) -> None:
     conn = await get_db_connection()
     try:
         await conn.execute(
-            "UPDATE characters SET level = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
-            new_level, character.id
+            "UPDATE characters SET level = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (new_level, character.id)
         )
+        await conn.commit()
     finally:
         await conn.close()
     character.level = new_level
+
 
 async def update_equipment(character_id: int, equipo: dict) -> None:
     conn = await get_db_connection()
     try:
         await conn.execute('''
             UPDATE characters
-            SET equipo_arma_principal = $2, equipo_arma_secundaria = $3, equipo_cabeza = $4,
-                equipo_torso = $5, equipo_piernas = $6, equipo_accesorio = $7
-            WHERE id = $1
-        ''', character_id, equipo.get("arma_principal"), equipo.get("arma_secundaria"),
-            equipo.get("cabeza"), equipo.get("torso"), equipo.get("piernas"), equipo.get("accesorio"))
+            SET equipo_arma_principal = ?, equipo_arma_secundaria = ?, equipo_cabeza = ?,
+                equipo_torso = ?, equipo_piernas = ?, equipo_accesorio = ?
+            WHERE id = ?
+        ''', (equipo.get("arma_principal"), equipo.get("arma_secundaria"),
+              equipo.get("cabeza"), equipo.get("torso"), equipo.get("piernas"),
+              equipo.get("accesorio"), character_id))
+        await conn.commit()
     finally:
         await conn.close()
+
 
 async def get_character_transformations(character_id: int) -> List[dict]:
     conn = await get_db_connection()
     try:
-        rows = await conn.fetch(
-            "SELECT * FROM transformations WHERE character_id = $1", character_id
+        cursor = await conn.execute(
+            "SELECT * FROM transformations WHERE character_id = ?", (character_id,)
         )
+        rows = await cursor.fetchall()
         return [dict(row) for row in rows]
     finally:
         await conn.close()
+
 
 async def add_transformation(character_id: int, name: str, element: str,
                               bonuses: dict, ph_drain: int, condition_text: str) -> None:
@@ -169,21 +194,25 @@ async def add_transformation(character_id: int, name: str, element: str,
             INSERT INTO transformations
                 (character_id, name, element, stat_bonus_vit, stat_bonus_mana,
                  stat_bonus_fue, stat_bonus_res, stat_bonus_agi, ph_drain_per_turn, condition_text)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-        ''', character_id, name, element, bonuses["vit"], bonuses["mana"],
-            bonuses["fue"], bonuses["res"], bonuses["agi"], ph_drain, condition_text)
+            VALUES (?,?,?,?,?,?,?,?,?,?)
+        ''', (character_id, name, element, bonuses["vit"], bonuses["mana"],
+              bonuses["fue"], bonuses["res"], bonuses["agi"], ph_drain, condition_text))
+        await conn.commit()
     finally:
         await conn.close()
+
 
 async def update_energia(character_id: int, nueva_energia: int) -> None:
     conn = await get_db_connection()
     try:
         await conn.execute(
-            "UPDATE characters SET energia = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1",
-            character_id, nueva_energia
+            "UPDATE characters SET energia = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (nueva_energia, character_id)
         )
+        await conn.commit()
     finally:
         await conn.close()
+
 
 async def reset_energia_global() -> None:
     """Usado por /energia_global: repone la energía de TODOS los personajes al máximo, sin excepción."""
@@ -191,17 +220,25 @@ async def reset_energia_global() -> None:
     conn = await get_db_connection()
     try:
         await conn.execute(
-            "UPDATE characters SET energia = $1, updated_at = CURRENT_TIMESTAMP", ENERGIA_MAXIMA
+            "UPDATE characters SET energia = ?, updated_at = CURRENT_TIMESTAMP", (ENERGIA_MAXIMA,)
         )
+        await conn.commit()
     finally:
         await conn.close()
+
 
 async def incrementar_esencias_consumidas(character_id: int) -> int:
     conn = await get_db_connection()
     try:
-        return await conn.fetchval('''
-            UPDATE characters SET esencias_consumidas = esencias_consumidas + 1
-            WHERE id = $1 RETURNING esencias_consumidas
-        ''', character_id)
+        await conn.execute(
+            "UPDATE characters SET esencias_consumidas = esencias_consumidas + 1 WHERE id = ?",
+            (character_id,)
+        )
+        await conn.commit()
+        cursor = await conn.execute(
+            "SELECT esencias_consumidas FROM characters WHERE id = ?", (character_id,)
+        )
+        row = await cursor.fetchone()
+        return row["esencias_consumidas"]
     finally:
         await conn.close()
