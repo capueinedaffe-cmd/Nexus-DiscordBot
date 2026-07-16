@@ -17,8 +17,6 @@ from commands.combat import Fighter, CombatSession, ACTIVE_COMBATS, _resolver_tu
 from store.characters_store import get_character
 from store.expedition_store import construir_personaje_enemigo, armar_oleadas_arpias, ARPIAS_POR_OLEADA
 
-
-async def iniciar_evento_matriarca(channel_id: int, personajes_convocados: list) -> CombatSession:
 async def iniciar_evento_matriarca(channel_id: int, personajes_convocados: list) -> tuple:
     """
     Arma la sesión de combate de las 40 arpías + Matriarca oculta como
@@ -74,7 +72,9 @@ def setup_test_event_commands(bot):
             return
 
         try:
-            session = await iniciar_evento_matriarca(interaction.channel_id, [char])
+            session, texto_npc_inicial, combate_termino_de_una = await iniciar_evento_matriarca(
+                interaction.channel_id, [char]
+            )
         except RuntimeError as e:
             await interaction.response.send_message(str(e), ephemeral=True)
             return
@@ -87,6 +87,19 @@ def setup_test_event_commands(bot):
             value=f"{session.oleada_actual}/{session.oleadas_totales} — la Matriarca aparece al final si sobreviven todas.",
             inline=False,
         )
+        if texto_npc_inicial:
+            embed.description = texto_npc_inicial + "\n\n" + embed.description
 
         await interaction.response.send_message("¡El desafío comienza!", ephemeral=True)
-        session.status_message = await interaction.channel.send(embed=embed)
+
+        if combate_termino_de_una:
+            from commands.combat import _persist_combat_stats
+            winning_team = session.winning_team()
+            ganadores = [f.name for f in session.fighters if f.team == winning_team]
+            embed.title = "🏆 Combate finalizado"
+            embed.description += f"\n\n**Equipo {winning_team + 1} gana!** ({', '.join(ganadores)})"
+            session.status_message = await interaction.channel.send(embed=embed)
+            await _persist_combat_stats(session, {winning_team: "victoria", 1 - winning_team: "derrota"})
+            del ACTIVE_COMBATS[interaction.channel_id]
+        else:
+            session.status_message = await interaction.channel.send(embed=embed)
