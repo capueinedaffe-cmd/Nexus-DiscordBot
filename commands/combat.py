@@ -40,6 +40,7 @@ from store.characters_store import (
 from store.abilities_store import get_ability, min_level_for
 from store.equipment_store import get_equipment
 from maths import combat_math as cmath
+from maths.npc_ai_math import decidir_turno
 
 TURN_TIMEOUT_SECONDS = 10 * 60   # 10 minutos
 LOBBY_TIMEOUT_SECONDS = 5 * 60   # 5 minutos
@@ -255,6 +256,76 @@ def resolver_ataque(attacker, target, bono_stat, danio_base, elemento=None):
     texto = f"({etiquetas[grado]}, tirada {total}) **{damage}** de daño."
     return (texto, damage, False)
 
+async def _avanzar_y_resolver_npcs(session):
+    """
+    Avanza el turno una vez, y si el/los siguientes turnos caen en NPCs,
+    los resuelve automáticamente en cadena (ataque o movimiento según
+    maths/npc_ai_math.py) hasta que le vuelva a tocar a un jugador o el
+    combate termine. Devuelve (texto_acumulado, combate_terminado_bool).
+    No publica nada en Discord ni persiste resultados: eso lo sigue
+    haciendo quien llama, igual que antes.
+    """
+    lineas = []
+
+    drain_msg = session.advance_turn()
+    if drain_msg:
+        lineas.append(drain_msg)
+
+    while not session.is_over() and session.current.is_npc:
+        npc = session.current
+        objetivos = [f for f in session.fighters if f.team != npc.team]
+        decision = decidir_turno(npc, objetivos)
+
+        if decision["accion"] == "atacar":
+            objetivo = decision["objetivo"]
+            golpes = cmath.calcular_ataques_basicos(npc.fue, npc.arma_principal, npc.arma_secundaria)
+            guardia_restante = objetivo.is_defending
+            for golpe in golpes:
+                arma = golpe["arma"]
+                tipo_dano = arma["tipo_dano"] if arma else TIPO_DANO_PUNOS
+                fue_efectiva = golpe["fue_efectiva"]
+                texto, danio, evadido = cmath.resolver_golpe_fisico(
+                    bono_dado=fue_efectiva,
+                    dano_base=fue_efectiva,
+                    tipo_dano=tipo_dano,
+                    agi_efectiva_atacante=npc.agi_efectiva,
+                    agi_efectiva_defensor=objetivo.agi_efectiva,
+                    armadura_defensor=objetivo.armadura_combinada,
+                    vit_max_defensor=objetivo.vit_max,
+                    defensor_en_guardia=guardia_restante,
+                )
+                guardia_restante = False
+                objetivo.vit = max(0, objetivo.vit - danio)
+                if evadido:
+                    objetivo.ph = min(objetivo.ph_max, objetivo.ph + 2)
+                else:
+                    npc.ph = min(npc.ph_max, npc.ph + 2)
+                nombre_arma = f" con **{arma['nombre']}**" if arma else ""
+                lineas.append(f"🩸 **{npc.name}**{nombre_arma} → **{objetivo.name}**: {texto}")
+                if not objetivo.alive:
+                    break
+            objetivo.is_defending = False
+
+        elif decision["accion"] == "mover":
+            pasos = cmath.pasos_movimiento(npc.agi_efectiva)
+            distancia_anterior = npc.distancia
+            if decision["direccion"] == "avanzar":
+                npc.distancia = max(0, npc.distancia - pasos)
+            else:
+                npc.distancia = min(5, npc.distancia + pasos)
+            lineas.append(f"🏃 **{npc.name}** se reposiciona ({distancia_anterior} → {npc.distancia}).")
+
+        else:  # "esperar" — no debería pasar en un combate normal, pero por las dudas
+            lineas.append(f"⏳ **{npc.name}** no tiene objetivos, espera.")
+
+        if session.is_over():
+            break
+
+        drain_msg = session.advance_turn()
+        if drain_msg:
+            lineas.append(drain_msg)
+
+    return "\n".join(lineas), session.is_over()
 
 # ── Lobby de espera antes de un combate ─────────────────────────────
 class CombatLobby:
@@ -762,10 +833,15 @@ def setup_combat_commands(bot):
             await _end_combat_victory(interaction, session, result_line)
             return
 
-        drain_msg = session.advance_turn()
+        npc_texto, combate_termino = await _avanzar_y_resolver_npcs(session)
+        texto_completo = result_line + (f"\n\n{npc_texto}" if npc_texto else "")
+
+        if combate_termino:
+            await _end_combat_victory(interaction, session, texto_completo)
+            return
+
         embed = session.status_embed()
-        descripcion = result_line + (f"\n\n{drain_msg}" if drain_msg else "")
-        embed.description = descripcion + "\n\n" + embed.description
+        embed.description = texto_completo + "\n\n" + embed.description
         await interaction.response.send_message("Acción registrada.", ephemeral=True)
         await _publish(interaction, session, embed)
       
@@ -792,10 +868,15 @@ def setup_combat_commands(bot):
         fighter.ph = min(fighter.ph_max, fighter.ph + ph_ganado)
         result_line = f"🛡️ **{fighter.name}** se pone en guardia. (+1 PH)"
 
-        drain_msg = session.advance_turn()
+        npc_texto, combate_termino = await _avanzar_y_resolver_npcs(session)
+        texto_completo = result_line + (f"\n\n{npc_texto}" if npc_texto else "")
+
+        if combate_termino:
+            await _end_combat_victory(interaction, session, texto_completo)
+            return
+
         embed = session.status_embed()
-        descripcion = result_line + (f"\n\n{drain_msg}" if drain_msg else "")
-        embed.description = descripcion + "\n\n" + embed.description
+        embed.description = texto_completo + "\n\n" + embed.description
         await interaction.response.send_message("Acción registrada.", ephemeral=True)
         await _publish(interaction, session, embed)
 
@@ -833,10 +914,15 @@ def setup_combat_commands(bot):
             f"({distancia_anterior} → {fighter.distancia}, {pasos} paso(s) según su AGI efectiva)."
         )
 
-        drain_msg = session.advance_turn()
+        npc_texto, combate_termino = await _avanzar_y_resolver_npcs(session)
+        texto_completo = result_line + (f"\n\n{npc_texto}" if npc_texto else "")
+
+        if combate_termino:
+            await _end_combat_victory(interaction, session, texto_completo)
+            return
+
         embed = session.status_embed()
-        descripcion = result_line + (f"\n\n{drain_msg}" if drain_msg else "")
-        embed.description = descripcion + "\n\n" + embed.description
+        embed.description = texto_completo + "\n\n" + embed.description
         await interaction.response.send_message("Acción registrada.", ephemeral=True)
         await _publish(interaction, session, embed)
   
@@ -860,10 +946,15 @@ def setup_combat_commands(bot):
 
         result_line = f"⏳ **{fighter.name}** no hace nada."
 
-        drain_msg = session.advance_turn()
+        npc_texto, combate_termino = await _avanzar_y_resolver_npcs(session)
+        texto_completo = result_line + (f"\n\n{npc_texto}" if npc_texto else "")
+
+        if combate_termino:
+            await _end_combat_victory(interaction, session, texto_completo)
+            return
+
         embed = session.status_embed()
-        descripcion = result_line + (f"\n\n{drain_msg}" if drain_msg else "")
-        embed.description = descripcion + "\n\n" + embed.description
+        embed.description = texto_completo + "\n\n" + embed.description
         await interaction.response.send_message("Acción registrada.", ephemeral=True)
         await _publish(interaction, session, embed)
     
@@ -951,10 +1042,15 @@ def setup_combat_commands(bot):
             await _end_combat_victory(interaction, session, result_line)
             return
 
-        drain_msg = session.advance_turn()
+        npc_texto, combate_termino = await _avanzar_y_resolver_npcs(session)
+        texto_completo = result_line + (f"\n\n{npc_texto}" if npc_texto else "")
+
+        if combate_termino:
+            await _end_combat_victory(interaction, session, texto_completo)
+            return
+
         embed = session.status_embed()
-        descripcion = result_line + (f"\n\n{drain_msg}" if drain_msg else "")
-        embed.description = descripcion + "\n\n" + embed.description
+        embed.description = texto_completo + "\n\n" + embed.description
         await interaction.response.send_message("Acción registrada.", ephemeral=True)
         await _publish(interaction, session, embed)
 
@@ -1077,10 +1173,15 @@ def setup_combat_commands(bot):
             await _end_combat_victory(interaction, session, result_line)
             return
 
-        drain_msg = session.advance_turn()
+        npc_texto, combate_termino = await _avanzar_y_resolver_npcs(session)
+        texto_completo = result_line + (f"\n\n{npc_texto}" if npc_texto else "")
+
+        if combate_termino:
+            await _end_combat_victory(interaction, session, texto_completo)
+            return
+
         embed = session.status_embed()
-        descripcion = result_line + (f"\n\n{drain_msg}" if drain_msg else "")
-        embed.description = descripcion + "\n\n" + embed.description
+        embed.description = texto_completo + "\n\n" + embed.description
         await interaction.response.send_message("Acción registrada.", ephemeral=True)
         await _publish(interaction, session, embed)
   
