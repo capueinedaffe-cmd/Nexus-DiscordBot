@@ -13,17 +13,20 @@ Arpía Furiosa: es INEVITABLE en cuanto se derrota a las 40 arpías
 menores (no es una elección del jugador, es consecuencia directa).
 """
 
-from commands.combat import Fighter, CombatSession, ACTIVE_COMBATS
+from commands.combat import Fighter, CombatSession, ACTIVE_COMBATS, _resolver_turnos_npc
 from store.characters_store import get_character
 from store.expedition_store import construir_personaje_enemigo, armar_oleadas_arpias, ARPIAS_POR_OLEADA
 
 
 async def iniciar_evento_matriarca(channel_id: int, personajes_convocados: list) -> CombatSession:
+async def iniciar_evento_matriarca(channel_id: int, personajes_convocados: list) -> tuple:
     """
     Arma la sesión de combate de las 40 arpías + Matriarca oculta como
     evento inevitable. personajes_convocados: lista de Character ya
-    resueltos (uno por jugador participante). Devuelve la CombatSession
-    creada y ya registrada en ACTIVE_COMBATS.
+    resueltos (uno por jugador participante). Devuelve (session, texto_npc_inicial,
+    combate_termino_de_una) — esto último cubre el caso límite de que la
+    iniciativa ponga a una arpía primera y el combate se resuelva solo
+    antes de que cualquier jugador llegue a actuar.
 
     NOTA: esto todavía no valida "¿ya completaron el evento final de la
     Montaña?" — esa condición la va a chequear expedition.py ANTES de
@@ -46,7 +49,12 @@ async def iniciar_evento_matriarca(channel_id: int, personajes_convocados: list)
         equipo_oleadas=1,
     )
     ACTIVE_COMBATS[channel_id] = session
-    return session
+
+    # Por si la iniciativa puso a una arpía primera, antes de que cualquier
+    # jugador pueda actuar (mismo caso límite que en /preparado de combat.py).
+    texto_npc_inicial, combate_termino_de_una = await _resolver_turnos_npc(session)
+
+    return session, texto_npc_inicial, combate_termino_de_una
 
 def setup_test_event_commands(bot):
     """Comandos de prueba temporales — se eliminan cuando expedition.py dispare esto de verdad."""
