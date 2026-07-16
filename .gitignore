@@ -1,4 +1,5 @@
 .env
 __pycache__/
 *.pyc
-data/characters.json
+venv/
+data_db/
