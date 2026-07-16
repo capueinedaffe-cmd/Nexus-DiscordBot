@@ -257,24 +257,23 @@ def resolver_ataque(attacker, target, bono_stat, danio_base, elemento=None):
     texto = f"({etiquetas[grado]}, tirada {total}) **{damage}** de daño."
     return (texto, damage, False)
 
-async def _avanzar_y_resolver_npcs(session):
+async def _resolver_turnos_npc(session):
     """
-    Avanza el turno una vez, y si el/los siguientes turnos caen en NPCs,
-    los resuelve automáticamente en cadena (ataque o movimiento según
-    maths/npc_ai_math.py) hasta que le vuelva a tocar a un jugador o el
-    combate termine. Devuelve (texto_acumulado, combate_terminado_bool).
-    No publica nada en Discord ni persiste resultados: eso lo sigue
-    haciendo quien llama, igual que antes.
+    Resuelve en cadena todos los turnos consecutivos de NPCs a partir del
+    turno ACTUAL de la sesión (sin avanzar primero). Hace falta un punto
+    de entrada así, separado de _avanzar_y_resolver_npcs, porque si la
+    tirada de iniciativa pone a un NPC primero (antes de que cualquier
+    jugador actúe), nadie puede destrabar esa situación con un comando:
+    el jugador no puede actuar porque no es su turno, y ningún comando se
+    ejecutó todavía para disparar la IA. Por eso esto se llama también
+    justo al crear una CombatSession, no solo después de una acción.
+    Devuelve (texto_acumulado, combate_terminado_bool).
     """
     lineas = []
-
-    drain_msg = session.advance_turn()
-    if drain_msg:
-        lineas.append(drain_msg)
-
     terminado, msg_oleada = session.is_truly_over()
     if msg_oleada:
         lineas.append(msg_oleada)
+
     while not terminado and session.current.is_npc:
         npc = session.current
         objetivos = [f for f in session.fighters if f.team != npc.team]
@@ -319,6 +318,9 @@ async def _avanzar_y_resolver_npcs(session):
                 npc.distancia = min(5, npc.distancia + pasos)
             lineas.append(f"🏃 **{npc.name}** se reposiciona ({distancia_anterior} → {npc.distancia}).")
 
+        else:  # "esperar" — no debería pasar en un combate normal, pero por las dudas
+            lineas.append(f"⏳ **{npc.name}** no tiene objetivos, espera.")
+
         terminado, msg_oleada = session.is_truly_over()
         if msg_oleada:
             lineas.append(msg_oleada)
@@ -329,11 +331,34 @@ async def _avanzar_y_resolver_npcs(session):
         if drain_msg:
             lineas.append(drain_msg)
 
-    terminado_final, msg_oleada_final = session.is_truly_over()
-    if msg_oleada_final:
-        lineas.append(msg_oleada_final)
-    return "\n".join(lineas), terminado_final
+        terminado, msg_oleada = session.is_truly_over()
+        if msg_oleada:
+            lineas.append(msg_oleada)
 
+    return "\n".join(lineas), terminado
+
+
+async def _avanzar_y_resolver_npcs(session):
+    """
+    Avanza el turno una vez, y si el/los siguientes turnos caen en NPCs,
+    los resuelve automáticamente en cadena (delegando en _resolver_turnos_npc)
+    hasta que le vuelva a tocar a un jugador o el combate termine.
+    Devuelve (texto_acumulado, combate_terminado_bool). No publica nada en
+    Discord ni persiste resultados: eso lo sigue haciendo quien llama.
+    """
+    lineas = []
+
+    drain_msg = session.advance_turn()
+    if drain_msg:
+        lineas.append(drain_msg)
+
+    texto_npc, terminado = await _resolver_turnos_npc(session)
+    if texto_npc:
+        lineas.append(texto_npc)
+
+    return "\n".join(lineas), terminado
+
+  
 # ── Lobby de espera antes de un combate ─────────────────────────────
 class CombatLobby:
     def __init__(self, channel_id):
@@ -789,12 +814,32 @@ def setup_combat_commands(bot):
             del LOBBIES[interaction.channel_id]
 
             init_text = "\n".join(f"{name}: {roll}" for name, roll in session.initiative_log)
+
+            # Por si la iniciativa puso a un NPC primero (antes de que
+            # cualquier jugador pueda actuar), resolvemos esos turnos ya.
+            texto_npc_inicial, combate_termino_de_una = await _resolver_turnos_npc(session)
+
             embed = session.status_embed(title="⚔️ ¡Combate iniciado!")
             embed.add_field(name="Iniciativa (1d6 + AGI)", value=init_text, inline=False)
+            if texto_npc_inicial:
+                embed.description = texto_npc_inicial + "\n\n" + embed.description
 
             await interaction.response.send_message("¡Todos listos! El combate comienza.", ephemeral=True)
-            # Nuevo panel: es una fase distinta a la preparación, no una edición de esa.
-            session.status_message = await interaction.channel.send(embed=embed)
+
+            if combate_termino_de_una:
+                # Caso límite: un combate donde el bando de jugadores ya
+                # pierde/gana solo con la resolución de la primera tanda de
+                # NPCs, sin que nadie haya llegado a actuar todavía.
+                winning_team = session.winning_team()
+                ganadores = [f.name for f in session.fighters if f.team == winning_team]
+                embed.title = "🏆 Combate finalizado"
+                embed.description += f"\n\n**Equipo {winning_team + 1} gana!** ({', '.join(ganadores)})"
+                session.status_message = await interaction.channel.send(embed=embed)
+                await _persist_combat_stats(session, {winning_team: "victoria", 1 - winning_team: "derrota"})
+                del ACTIVE_COMBATS[interaction.channel_id]
+            else:
+                # Nuevo panel: es una fase distinta a la preparación, no una edición de esa.
+                session.status_message = await interaction.channel.send(embed=embed)
         else:
             await interaction.response.send_message(
                 f"Listo registrado ({len(lobby.ready_votes)}/{len(lobby.owner_ids())}).", ephemeral=True
