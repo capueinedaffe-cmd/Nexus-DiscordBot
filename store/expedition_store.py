@@ -300,3 +300,17 @@ async def hacer_publico(zona_id: str, pistas: int) -> None:
         await conn.commit()
     finally:
         await conn.close()
+
+# ── Pelea especial: 40 arpías menores (Montaña, post evento final) ─
+ARPIAS_POR_OLEADA = 4
+OLEADAS_ARPIAS = 10
+
+def armar_oleadas_arpias():
+    """
+    Devuelve (primera_oleada_ids, resto_oleadas) para las 40 arpías menores:
+    10 oleadas de 4 arpía_menor cada una. primera_oleada_ids es la lista
+    que arma el Fighter inicial de la sesión; resto_oleadas es la lista
+    de listas que CombatSession va a ir revelando con avanzar_oleada_si_corresponde().
+    """
+    todas = [["arpia_menor"] * ARPIAS_POR_OLEADA for _ in range(OLEADAS_ARPIAS)]
+    return todas[0], todas[1:]
