@@ -41,6 +41,7 @@ from store.abilities_store import get_ability, min_level_for
 from store.equipment_store import get_equipment
 from maths import combat_math as cmath
 from maths.npc_ai_math import decidir_turno
+from store.expedition_store import construir_personaje_enemigo
 
 TURN_TIMEOUT_SECONDS = 10 * 60   # 10 minutos
 LOBBY_TIMEOUT_SECONDS = 5 * 60   # 5 minutos
@@ -376,7 +377,15 @@ class CombatLobby:
 
 # ── Sesión de combate activo ─────────────────────────────────────────
 class CombatSession:
-    def __init__(self, channel_id, fighters):
+    def __init__(self, channel_id, fighters, oleadas_enemigos=None, equipo_oleadas=None):
+        """
+        oleadas_enemigos: lista de listas de enemy_ids para las oleadas
+          SIGUIENTES a la primera (la primera oleada ya viene incluida en
+          'fighters', armada por quien crea la sesión). None o [] = combate
+          normal, sin oleadas.
+        equipo_oleadas: número de equipo (0 o 1) que se va reponiendo con
+          esas oleadas. None si no aplica.
+        """
         self.channel_id = channel_id
         self.fighters = fighters   # lista de Fighter, orden = orden de turnos
         self.turn_index = 0
@@ -385,11 +394,17 @@ class CombatSession:
         self.pause_votes = set()
         self.resume_votes = set()
         self.terminate_votes = set()
+        self.surrender_votes = {0: set(), 1: set()}
         self.last_action_time = time.time()
         self.status_message = None   # mensaje del panel, se edita en vez de duplicarse
+
+        self.oleadas_restantes = list(oleadas_enemigos) if oleadas_enemigos else []
+        self.equipo_oleadas = equipo_oleadas
+        self.oleada_actual = 1
+        self.oleadas_totales = 1 + len(self.oleadas_restantes)
+        self.enemigos_derrotados_total = 0  # cuenta acumulada, útil para la Etapa 5.3.3 (40 arpías)
+
         self._roll_initiative()
-        self.terminate_votes = set()
-        self.surrender_votes = {0: set(), 1: set()}   # ← nuevo
 
     def _roll_initiative(self):
         rolls = [(random.randint(1, 6) + f.agi, f) for f in self.fighters]
@@ -430,6 +445,47 @@ class CombatSession:
     def is_over(self):
         return not self.team_alive(0) or not self.team_alive(1)
 
+    def avanzar_oleada_si_corresponde(self):
+        """
+        Si el equipo de oleadas se quedó sin nadie vivo y todavía quedan
+        oleadas pendientes, hace aparecer la siguiente tanda de enemigos
+        y devuelve un texto para mostrar en el canal. Si no corresponde
+        (no hay sistema de oleadas acá, o ya no quedan más), devuelve None.
+        """
+        if self.equipo_oleadas is None:
+            return None
+        if self.team_alive(self.equipo_oleadas):
+            return None  # el equipo de oleadas todavía tiene gente viva, no hace falta reponer
+        if not self.oleadas_restantes:
+            return None  # no quedan más oleadas: el combate termina de verdad
+
+        # Antes de reponer, contamos cuántos cayeron en esta oleada que recién terminó
+        self.enemigos_derrotados_total += sum(
+            1 for f in self.fighters if f.team == self.equipo_oleadas and not f.alive
+        )
+
+        siguiente_ids = self.oleadas_restantes.pop(0)
+        nuevos = [Fighter(construir_personaje_enemigo(eid), self.equipo_oleadas) for eid in siguiente_ids]
+        self.fighters.extend(nuevos)
+        self.oleada_actual += 1
+
+        nombres = ", ".join(f.name for f in nuevos)
+        return f"🌊 ¡Oleada {self.oleada_actual}/{self.oleadas_totales}! Aparecen: {nombres}."
+
+    def is_truly_over(self):
+        """
+        Como is_over(), pero si corresponde reponer una oleada, la genera
+        sola y NO cuenta como terminado todavía. Devuelve (terminado, mensaje_oleada_o_None).
+        Este es el método que hay que usar en vez de is_over() a partir de ahora,
+        en cualquier lugar donde se decida si el combate terminó.
+        """
+        if not self.is_over():
+            return False, None
+        mensaje = self.avanzar_oleada_si_corresponde()
+        if mensaje:
+            return False, mensaje
+        return True, None
+  
     def winning_team(self):
         if self.team_alive(0) and not self.team_alive(1):
             return 0
