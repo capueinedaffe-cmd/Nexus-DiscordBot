@@ -272,7 +272,10 @@ async def _avanzar_y_resolver_npcs(session):
     if drain_msg:
         lineas.append(drain_msg)
 
-    while not session.is_over() and session.current.is_npc:
+    terminado, msg_oleada = session.is_truly_over()
+    if msg_oleada:
+        lineas.append(msg_oleada)
+    while not terminado and session.current.is_npc:
         npc = session.current
         objetivos = [f for f in session.fighters if f.team != npc.team]
         decision = decidir_turno(npc, objetivos)
@@ -316,17 +319,20 @@ async def _avanzar_y_resolver_npcs(session):
                 npc.distancia = min(5, npc.distancia + pasos)
             lineas.append(f"🏃 **{npc.name}** se reposiciona ({distancia_anterior} → {npc.distancia}).")
 
-        else:  # "esperar" — no debería pasar en un combate normal, pero por las dudas
-            lineas.append(f"⏳ **{npc.name}** no tiene objetivos, espera.")
-
-        if session.is_over():
+        terminado, msg_oleada = session.is_truly_over()
+        if msg_oleada:
+            lineas.append(msg_oleada)
+        if terminado:
             break
 
         drain_msg = session.advance_turn()
         if drain_msg:
             lineas.append(drain_msg)
 
-    return "\n".join(lineas), session.is_over()
+    terminado_final, msg_oleada_final = session.is_truly_over()
+    if msg_oleada_final:
+        lineas.append(msg_oleada_final)
+    return "\n".join(lineas), terminado_final
 
 # ── Lobby de espera antes de un combate ─────────────────────────────
 class CombatLobby:
@@ -885,10 +891,13 @@ def setup_combat_commands(bot):
         target.is_defending = False
         result_line = "\n".join(lineas_resultado)
 
-        if session.is_over():
+        terminado, msg_oleada = session.is_truly_over()
+        if msg_oleada:
+            result_line += f"\n\n{msg_oleada}"
+        if terminado:
             await _end_combat_victory(interaction, session, result_line)
             return
-
+          
         npc_texto, combate_termino = await _avanzar_y_resolver_npcs(session)
         texto_completo = result_line + (f"\n\n{npc_texto}" if npc_texto else "")
 
@@ -1094,7 +1103,10 @@ def setup_combat_commands(bot):
         texto, damage, evadido = resolver_ataque(attacker, target, attacker.res, damage_base, elemento=hab["elemento"])
         result_line = f"✨ **{attacker.name}** usa **{hab['nombre']}** contra **{target.name}**. {texto}"
 
-        if session.is_over():
+        terminado, msg_oleada = session.is_truly_over()
+        if msg_oleada:
+            result_line += f"\n\n{msg_oleada}"
+        if terminado:
             await _end_combat_victory(interaction, session, result_line)
             return
 
@@ -1225,7 +1237,10 @@ def setup_combat_commands(bot):
         if coste_pt_final != hab["coste_pt"]:
             result_line += f" (arma incompatible con la técnica: costo de PT duplicado a {coste_pt_final})"
 
-        if session.is_over():
+        terminado, msg_oleada = session.is_truly_over()
+        if msg_oleada:
+            result_line += f"\n\n{msg_oleada}"
+        if terminado:
             await _end_combat_victory(interaction, session, result_line)
             return
 
