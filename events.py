@@ -47,3 +47,38 @@ async def iniciar_evento_matriarca(channel_id: int, personajes_convocados: list)
     )
     ACTIVE_COMBATS[channel_id] = session
     return session
+
+def setup_test_event_commands(bot):
+    """Comandos de prueba temporales — se eliminan cuando expedition.py dispare esto de verdad."""
+    import discord
+    from discord import app_commands
+    from commands.combat import mi_personaje_lobby_autocomplete
+
+    @bot.tree.command(name="desafiar_matriarca", description="[Prueba] Inicia la pelea de las 40 arpías + Matriarca oculta")
+    @app_commands.describe(personaje="Tu personaje a convocar")
+    @app_commands.autocomplete(personaje=mi_personaje_lobby_autocomplete)
+    async def desafiar_matriarca(interaction: discord.Interaction, personaje: str):
+        char = await get_character(interaction.user.id, personaje)
+        if not char:
+            await interaction.response.send_message(
+                f"No tenés un personaje llamado **{personaje}**.", ephemeral=True
+            )
+            return
+
+        try:
+            session = await iniciar_evento_matriarca(interaction.channel_id, [char])
+        except RuntimeError as e:
+            await interaction.response.send_message(str(e), ephemeral=True)
+            return
+
+        init_text = "\n".join(f"{name}: {roll}" for name, roll in session.initiative_log)
+        embed = session.status_embed(title="🦅 ¡Las arpías enloquecidas atacan!")
+        embed.add_field(name="Iniciativa (1d6 + AGI)", value=init_text, inline=False)
+        embed.add_field(
+            name="Oleada",
+            value=f"{session.oleada_actual}/{session.oleadas_totales} — la Matriarca aparece al final si sobreviven todas.",
+            inline=False,
+        )
+
+        await interaction.response.send_message("¡El desafío comienza!", ephemeral=True)
+        session.status_message = await interaction.channel.send(embed=embed)
