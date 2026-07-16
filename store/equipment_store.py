@@ -16,10 +16,11 @@ async def add_equipment(character_id: int, equipment_id: str, cantidad: int = 1)
     try:
         await conn.execute('''
             INSERT INTO character_equipment (character_id, equipment_id, cantidad)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (character_id, equipment_id)
-            DO UPDATE SET cantidad = character_equipment.cantidad + EXCLUDED.cantidad
-        ''', character_id, equipment_id, cantidad)
+            VALUES (?, ?, ?)
+            ON CONFLICT(character_id, equipment_id)
+            DO UPDATE SET cantidad = cantidad + excluded.cantidad
+        ''', (character_id, equipment_id, cantidad))
+        await conn.commit()
     finally:
         await conn.close()
 
@@ -27,10 +28,11 @@ async def add_equipment(character_id: int, equipment_id: str, cantidad: int = 1)
 async def get_equipment_inventory(character_id: int) -> list:
     conn = await get_db_connection()
     try:
-        rows = await conn.fetch(
-            "SELECT equipment_id, cantidad FROM character_equipment WHERE character_id = $1 ORDER BY equipment_id",
-            character_id
+        cursor = await conn.execute(
+            "SELECT equipment_id, cantidad FROM character_equipment WHERE character_id = ? ORDER BY equipment_id",
+            (character_id,)
         )
+        rows = await cursor.fetchall()
         return [dict(row) for row in rows]
     finally:
         await conn.close()
