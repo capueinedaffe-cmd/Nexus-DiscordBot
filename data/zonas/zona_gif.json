@@ -1,0 +1,10 @@
+{
+  "_nota": "Banco de GIFs por zona. Cada zona en zonas.json referencia un gif_id acá. Si una zona no tiene gif_id o el id no existe en este archivo, el embed simplemente no muestra imagen.",
+  "gifs": {
+    "praderas_gif": "https://ejemplo.com/praderas.gif",
+    "bosque_gif": "https://ejemplo.com/bosque.gif",
+    "valle_gif": "https://ejemplo.com/valle.gif",
+    "montana_gif": "https://ejemplo.com/montana.gif",
+    "colinas_retumbantes_gif": "https://ejemplo.com/colinas.gif"
+  }
+}
