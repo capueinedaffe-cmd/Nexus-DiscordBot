@@ -17,6 +17,7 @@ from store.expedition_store import (
     construir_personaje_enemigo, armar_oleadas_arpias, ARPIAS_POR_OLEADA,
     get_zona, get_enemy, agregar_loot, marcar_evento_final_completado,
     marcar_jefe_oculto_completado, registrar_arpia_derrotada,
+    finalizar_expedition,
 )
 
 
