@@ -10,4 +10,4 @@ import json
 with open("config.json") as f:
     _CONFIG = json.load(f)
 
-AYVIAR_ROLE_ID = _CONFIG.get("1503575455301767198")]
+AYVIAR_ROLE_ID = _CONFIG.get("1503575455301767198")
