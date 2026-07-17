@@ -34,6 +34,7 @@ from database import init_db
 from commands.character_creation import setup_character_commands
 from commands.combat import setup_combat_commands, start_background_tasks
 from commands.forge import setup_forge_commands
+from commands.expedition import setup_expedition_commands
 from events import setup_test_event_commands
 
 # ── Configuración básica ──��───────────────────────────────────────
