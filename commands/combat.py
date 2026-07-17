@@ -1497,6 +1497,11 @@ def setup_combat_commands(bot):
             await interaction.response.send_message("Rendición confirmada. El combate terminó.", ephemeral=True)
             await _publish(interaction, session, embed)
             await _persist_combat_stats(session, {equipo_ganador: "victoria", team: "derrota"})
+
+            if getattr(session, "expedition_id", None):
+                from events import procesar_fin_combate_expedicion
+                await procesar_fin_combate_expedicion(session, equipo_ganador)
+
             _quitar_combate(interaction.channel_id, session)
         else:
             await interaction.response.send_message(
@@ -1528,6 +1533,11 @@ async def _end_combat_victory(interaction, session, result_line):
     await interaction.response.send_message("Combate finalizado.", ephemeral=True)
     await _publish(interaction, session, embed)
     await _persist_combat_stats(session, {winning_team: "victoria", 1 - winning_team: "derrota"})
+
+    if getattr(session, "expedition_id", None):
+        from events import procesar_fin_combate_expedicion
+        await procesar_fin_combate_expedicion(session, winning_team)
+
     _quitar_combate(interaction.channel_id, session)
 
 
