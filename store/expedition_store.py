@@ -77,12 +77,45 @@ def construir_personaje_enemigo(enemy_id: str) -> Character:
 
 
 # ── Expediciones ──────────────────────────────────────────────────────
-async def get_active_expedition(thread_id: int):
+async def get_active_expeditions_by_thread(thread_id: int) -> list:
+    """Todas las expediciones activas de este hilo (puede haber hasta 3)."""
     conn = await get_db_connection()
     try:
         cursor = await conn.execute(
             "SELECT * FROM expeditions WHERE thread_id = ? AND estado = 'activa'", (thread_id,)
         )
+        rows = await cursor.fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        await conn.close()
+
+
+async def get_active_expedition_for_owner(thread_id: int, owner_id: int):
+    """La expedición activa de este hilo en la que participa este owner_id (si hay varias en el hilo)."""
+    conn = await get_db_connection()
+    try:
+        cursor = await conn.execute('''
+            SELECT e.* FROM expeditions e
+            JOIN expedition_participants ep ON ep.expedition_id = e.id
+            JOIN characters c ON c.id = ep.character_id
+            WHERE e.thread_id = ? AND e.estado = 'activa' AND c.owner_id = ?
+            LIMIT 1
+        ''', (thread_id, owner_id))
+        row = await cursor.fetchone()
+        return dict(row) if row else None
+    finally:
+        await conn.close()
+
+
+async def get_expedition_esperando_ayviar(thread_id: int):
+    """La expedición de este hilo que tiene cupos de ayviar abiertos ahora mismo, si hay alguna."""
+    conn = await get_db_connection()
+    try:
+        cursor = await conn.execute('''
+            SELECT * FROM expeditions
+            WHERE thread_id = ? AND estado = 'activa' AND ayviar_cupos_restantes > 0
+            LIMIT 1
+        ''', (thread_id,))
         row = await cursor.fetchone()
         return dict(row) if row else None
     finally:
