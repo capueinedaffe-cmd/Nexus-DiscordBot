@@ -96,6 +96,7 @@ async def init_db():
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS expeditions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                lider_owner_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
                 thread_id INTEGER NOT NULL,
                 zona_id TEXT NOT NULL,
                 estado TEXT NOT NULL DEFAULT 'activa',
