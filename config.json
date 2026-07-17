@@ -9,6 +9,7 @@
     "res": {"label": "RES", "base": 1, "max": 10},
     "agi": {"label": "AGI", "base": 1, "max": 10}
   },
+  "AYVIAR_ROLE_ID": null
   "TURN_TIMEOUT_SECONDS": 600,
   "LOBBY_TIMEOUT_SECONDS": 300
 }
