@@ -242,3 +242,13 @@ async def incrementar_esencias_consumidas(character_id: int) -> int:
         return row["esencias_consumidas"]
     finally:
         await conn.close()
+
+
+async def get_character_by_id(character_id: int):
+    conn = await get_db_connection()
+    try:
+        cursor = await conn.execute("SELECT * FROM characters WHERE id = ?", (character_id,))
+        row = await cursor.fetchone()
+        return Character(dict(row)) if row else None
+    finally:
+        await conn.close()
