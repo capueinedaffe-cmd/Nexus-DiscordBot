@@ -81,13 +81,13 @@ async def get_active_expedition(thread_id: int):
         await conn.close()
 
 
-async def create_expedition(thread_id: int, zona_id: str, pistas_iniciales: int = 0) -> dict:
+async def create_expedition(thread_id: int, zona_id: str, lider_owner_id: int, pistas_iniciales: int = 0) -> dict:
     conn = await get_db_connection()
     try:
         cursor = await conn.execute('''
-            INSERT INTO expeditions (thread_id, zona_id, pistas)
-            VALUES (?, ?, ?)
-        ''', (thread_id, zona_id, pistas_iniciales))
+            INSERT INTO expeditions (thread_id, zona_id, lider_owner_id, pistas)
+            VALUES (?, ?, ?, ?)
+        ''', (thread_id, zona_id, lider_owner_id, pistas_iniciales))
         await conn.commit()
         nuevo_id = cursor.lastrowid
         cursor2 = await conn.execute("SELECT * FROM expeditions WHERE id = ?", (nuevo_id,))
@@ -315,13 +315,40 @@ def armar_oleadas_arpias():
     todas = [["arpia_menor"] * ARPIAS_POR_OLEADA for _ in range(OLEADAS_ARPIAS)]
     return todas[0], todas[1:]
 
-async def set_ayviar_activo(expedition_id: int, valor: bool) -> None:
+async def usar_ayviar(expedition_id: int, cupos: int = 3) -> None:
     conn = await get_db_connection()
     try:
         await conn.execute(
-            "UPDATE expeditions SET ayviar_activo = ? WHERE id = ?",
-            (1 if valor else 0, expedition_id)
+            "UPDATE expeditions SET ayviar_usado = 1, ayviar_cupos_restantes = ? WHERE id = ?",
+            (cupos, expedition_id)
         )
         await conn.commit()
+    finally:
+        await conn.close()
+
+
+async def consumir_cupo_ayviar(expedition_id: int) -> None:
+    conn = await get_db_connection()
+    try:
+        await conn.execute(
+            "UPDATE expeditions SET ayviar_cupos_restantes = MAX(0, ayviar_cupos_restantes - 1) WHERE id = ?",
+            (expedition_id,)
+        )
+        await conn.commit()
+    finally:
+        await conn.close()
+
+async def esta_en_expedicion_activa(owner_id: int) -> bool:
+    conn = await get_db_connection()
+    try:
+        cursor = await conn.execute('''
+            SELECT 1 FROM expedition_participants ep
+            JOIN expeditions e ON e.id = ep.expedition_id
+            JOIN characters c ON c.id = ep.character_id
+            WHERE e.estado = 'activa' AND c.owner_id = ?
+            LIMIT 1
+        ''', (owner_id,))
+        row = await cursor.fetchone()
+        return row is not None
     finally:
         await conn.close()
