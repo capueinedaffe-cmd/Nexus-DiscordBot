@@ -20,9 +20,10 @@ async def usuario_ocupado(owner_id: int) -> bool:
             if owner_id in lobby.owner_ids():
                 return True
 
-    for session in ACTIVE_COMBATS.values():
-        if owner_id in session.owner_ids():
-            return True
+    for sessions in ACTIVE_COMBATS.values():
+        for session in sessions:
+            if owner_id in session.owner_ids():
+                return True
 
     for lobbies in LOBBIES_EXPEDICION.values():
         for lobby in lobbies:
