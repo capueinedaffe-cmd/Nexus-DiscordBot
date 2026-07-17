@@ -102,3 +102,8 @@ MAX_ESENCIAS_POR_PERSONAJE = 10
 
 def puede_consumir_esencia(esencias_consumidas_actual):
     return esencias_consumidas_actual < MAX_ESENCIAS_POR_PERSONAJE
+
+# ── Probabilidad de enemigos ────────────────────────────────────────────────────────────
+def cantidad_enemigos_hostiles():
+    """80% de que aparezca 1 solo enemigo hostil, 20% de que aparezcan 2."""
+    return 1 if random.random() < 0.80 else 2
