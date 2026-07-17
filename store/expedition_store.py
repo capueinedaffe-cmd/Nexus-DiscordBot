@@ -314,3 +314,14 @@ def armar_oleadas_arpias():
     """
     todas = [["arpia_menor"] * ARPIAS_POR_OLEADA for _ in range(OLEADAS_ARPIAS)]
     return todas[0], todas[1:]
+
+async def set_ayviar_activo(expedition_id: int, valor: bool) -> None:
+    conn = await get_db_connection()
+    try:
+        await conn.execute(
+            "UPDATE expeditions SET ayviar_activo = ? WHERE id = ?",
+            (1 if valor else 0, expedition_id)
+        )
+        await conn.commit()
+    finally:
+        await conn.close()
