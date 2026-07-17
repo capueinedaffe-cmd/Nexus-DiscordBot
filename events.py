@@ -3,38 +3,36 @@ events.py
 ---------
 Eventos de la expedición: consecuencias narrativas/mecánicas que se
 disparan como reacción a lo que pasa en el juego (derrotar un jefe,
-completar una zona, matar 40 arpías, etc.), no como respuesta directa
-a un comando de combate. combat.py se limita a resolver combates;
-expedition.py (cuando exista) va a llamar a las funciones de acá para
-disparar estos eventos en el momento narrativo correcto.
-
-Por ahora, el único evento implementado es el desafío de la Matriarca
-Arpía Furiosa: es INEVITABLE en cuanto se derrota a las 40 arpías
-menores (no es una elección del jugador, es consecuencia directa).
+completar una zona, atacar una arpía menor, etc.), no como respuesta
+directa a un comando de combate. combat.py se limita a resolver
+combates y llama a procesar_fin_combate_expedicion() como único punto
+de enganche; toda la lógica de qué significa ganar ese combate vive acá.
 """
 
-from commands.combat import Fighter, CombatSession, ACTIVE_COMBATS, _resolver_turnos_npc
+import discord
+
+from commands.combat import Fighter, CombatSession, ACTIVE_COMBATS, _agregar_combate, _resolver_turnos_npc
 from store.characters_store import get_character
-from store.expedition_store import construir_personaje_enemigo, armar_oleadas_arpias, ARPIAS_POR_OLEADA
+from store.expedition_store import (
+    construir_personaje_enemigo, armar_oleadas_arpias, ARPIAS_POR_OLEADA,
+    get_zona, get_enemy, agregar_loot, marcar_evento_final_completado,
+    marcar_jefe_oculto_completado, registrar_arpia_derrotada,
+)
 
-async def iniciar_evento_matriarca(channel_id: int, personajes_convocados: list) -> tuple:
-    """
-    Arma la sesión de combate de las 40 arpías + Matriarca oculta como
-    evento inevitable. personajes_convocados: lista de Character ya
-    resueltos (uno por jugador participante). Devuelve (session, texto_npc_inicial,
-    combate_termino_de_una) — esto último cubre el caso límite de que la
-    iniciativa ponga a una arpía primera y el combate se resuelva solo
-    antes de que cualquier jugador llegue a actuar.
 
-    NOTA: esto todavía no valida "¿ya completaron el evento final de la
-    Montaña?" — esa condición la va a chequear expedition.py ANTES de
-    llamar a esta función, comparando expedition["evento_final_completado"].
+async def iniciar_combate_arpias(expedition, personajes_convocados: list, channel_id: int, incluir_matriarca: bool):
     """
-    if channel_id in ACTIVE_COMBATS:
-        raise RuntimeError("Ya hay un combate en curso en este canal.")
+    Arma la pelea de 40 arpías menores (10 oleadas de 4). Si incluir_matriarca
+    es True, al final de las 40 aparece la Matriarca Arpía Furiosa como
+    oleada extra (esto solo debe pasar si la zona ya completó su evento
+    final). Devuelve (session, texto_npc_inicial, combate_termino_de_una).
+    """
+    if channel_id in ACTIVE_COMBATS and len(ACTIVE_COMBATS[channel_id]) >= 3:
+        raise RuntimeError("Ya hay demasiados combates activos en este canal.")
 
     primera_oleada_ids, resto_oleadas = armar_oleadas_arpias()
-    resto_oleadas.append(["matriarca_arpia_furiosa"])
+    if incluir_matriarca:
+        resto_oleadas.append(["matriarca_arpia_furiosa"])
 
     jugadores_fighters = [Fighter(char, team=0) for char in personajes_convocados]
     arpias_iniciales = [Fighter(construir_personaje_enemigo("arpia_menor"), team=1)
@@ -46,60 +44,82 @@ async def iniciar_evento_matriarca(channel_id: int, personajes_convocados: list)
         oleadas_enemigos=resto_oleadas,
         equipo_oleadas=1,
     )
-    ACTIVE_COMBATS[channel_id] = session
+    session.expedition_id = expedition["id"] if expedition else None
+    _agregar_combate(channel_id, session)
 
-    # Por si la iniciativa puso a una arpía primera, antes de que cualquier
-    # jugador pueda actuar (mismo caso límite que en /preparado de combat.py).
     texto_npc_inicial, combate_termino_de_una = await _resolver_turnos_npc(session)
-
     return session, texto_npc_inicial, combate_termino_de_una
 
-def setup_test_event_commands(bot):
-    """Comandos de prueba temporales — se eliminan cuando expedition.py dispare esto de verdad."""
-    import discord
-    from discord import app_commands
-    from commands.combat import mi_personaje_lobby_autocomplete
 
-    @bot.tree.command(name="desafiar_matriarca", description="[Prueba] Inicia la pelea de las 40 arpías + Matriarca oculta")
-    @app_commands.describe(personaje="Tu personaje a convocar")
-    @app_commands.autocomplete(personaje=mi_personaje_lobby_autocomplete)
-    async def desafiar_matriarca(interaction: discord.Interaction, personaje: str):
-        char = await get_character(interaction.user.id, personaje)
-        if not char:
-            await interaction.response.send_message(
-                f"No tenés un personaje llamado **{personaje}**.", ephemeral=True
-            )
-            return
+async def procesar_fin_combate_expedicion(session, winning_team: int):
+    """
+    Hook llamado por combat.py cuando termina un combate que tiene
+    session.expedition_id seteado. Si ganó el equipo de jugadores (team 0):
+      - tira el loot de cada enemigo derrotado según su tabla del bestiario.
+      - si alguno de los derrotados es el enemy_id del evento final de la
+        zona, marca evento_final_completado y agrega el loot garantizado.
+      - si alguno es una arpia_menor derrotada en un combate de oleadas,
+        suma al contador de arpías derrotadas de la expedición.
+      - si el derrotado es la Matriarca, marca jefe_oculto_completado y
+        agrega su recompensa fija.
+    Si ganó el equipo enemigo (team 1), no hay loot ni consecuencias:
+    la expedición sigue viva (una derrota puntual no la termina sola,
+    salvo que deje al grupo entero incapacitado, lo cual se chequea en
+    /explorar, no acá).
+    """
+    expedition_id = getattr(session, "expedition_id", None)
+    if not expedition_id or winning_team != 0:
+        return
 
-        try:
-            session, texto_npc_inicial, combate_termino_de_una = await iniciar_evento_matriarca(
-                interaction.channel_id, [char]
-            )
-        except RuntimeError as e:
-            await interaction.response.send_message(str(e), ephemeral=True)
-            return
+    derrotados = [f for f in session.fighters if f.team == 1 and not f.alive]
+    if not derrotados:
+        return
 
-        init_text = "\n".join(f"{name}: {roll}" for name, roll in session.initiative_log)
-        embed = session.status_embed(title="🦅 ¡Las arpías enloquecidas atacan!")
-        embed.add_field(name="Iniciativa (1d6 + AGI)", value=init_text, inline=False)
-        embed.add_field(
-            name="Oleada",
-            value=f"{session.oleada_actual}/{session.oleadas_totales} — la Matriarca aparece al final si sobreviven todas.",
-            inline=False,
-        )
-        if texto_npc_inicial:
-            embed.description = texto_npc_inicial + "\n\n" + embed.description
+    zona_id = None
+    zona = None
+    # No siempre sabemos la zona acá (el hook solo recibe la sesión), así
+    # que la resolvemos vía expedition_store si hace falta el evento final.
+    from store.expedition_store import get_db_connection as _gdc  # import local, evita ciclo
+    conn = await _gdc()
+    try:
+        cursor = await conn.execute("SELECT zona_id FROM expeditions WHERE id = ?", (expedition_id,))
+        row = await cursor.fetchone()
+        zona_id = row["zona_id"] if row else None
+    finally:
+        await conn.close()
+    if zona_id:
+        zona = get_zona(zona_id)
 
-        await interaction.response.send_message("¡El desafío comienza!", ephemeral=True)
+    arpias_derrotadas_este_combate = 0
 
-        if combate_termino_de_una:
-            from commands.combat import _persist_combat_stats
-            winning_team = session.winning_team()
-            ganadores = [f.name for f in session.fighters if f.team == winning_team]
-            embed.title = "🏆 Combate finalizado"
-            embed.description += f"\n\n**Equipo {winning_team + 1} gana!** ({', '.join(ganadores)})"
-            session.status_message = await interaction.channel.send(embed=embed)
-            await _persist_combat_stats(session, {winning_team: "victoria", 1 - winning_team: "derrota"})
-            del ACTIVE_COMBATS[interaction.channel_id]
-        else:
-            session.status_message = await interaction.channel.send(embed=embed)
+    for fighter in derrotados:
+        enemy_id = getattr(fighter.character, "enemy_id", None)
+        if not enemy_id:
+            continue
+        enemy_data = get_enemy(enemy_id) or {}
+
+        # Loot normal según probabilidad del bestiario (1 unidad por acierto)
+        import random
+        for material_id, prob in enemy_data.get("loot", {}).items():
+            if random.random() < prob:
+                await agregar_loot(expedition_id, material_id, 1)
+
+        # Evento final de la zona
+        if zona and zona.get("evento_final", {}).get("enemy_id") == enemy_id:
+            await marcar_evento_final_completado(expedition_id)
+            for material_id in zona["evento_final"].get("loot_garantizado", []):
+                await agregar_loot(expedition_id, material_id, 1)
+
+        # Conteo de arpías para el jefe oculto
+        if enemy_id == "arpia_menor":
+            arpias_derrotadas_este_combate += 1
+
+        # Matriarca derrotada
+        if enemy_id == "matriarca_arpia_furiosa":
+            await marcar_jefe_oculto_completado(expedition_id)
+            for material_id, prob in enemy_data.get("loot", {}).items():
+                if random.random() < prob:
+                    await agregar_loot(expedition_id, material_id, 1)
+
+    for _ in range(arpias_derrotadas_este_combate):
+        await registrar_arpia_derrotada(expedition_id)
