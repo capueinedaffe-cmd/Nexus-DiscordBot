@@ -202,10 +202,30 @@ class NeutralEncounterView(discord.ui.View):
         await interaction.response.edit_message(view=self)
 
         enemy_data = get_enemy(self.enemy_id)
+
         if self.enemy_id == "arpia_menor":
+            from events import iniciar_combate_arpias
             await interaction.followup.send(
-                "⚠️ ¡Atacaron a una arpía menor! El resto de la bandada no lo va a perdonar..."
+                "⚠️ ¡Atacaron a una arpía menor! Toda la bandada se abalanza — "
+                "van a tener que derrotar 40 arpías para que se retiren."
             )
+            incluir_matriarca = bool(self.expedition.get("evento_final_completado"))
+            session, texto_npc_inicial, _ = await iniciar_combate_arpias(
+                self.expedition, self.personajes, self.channel_id, incluir_matriarca
+            )
+            init_text = "\n".join(f"{name}: {roll}" for name, roll in session.initiative_log)
+            embed = session.status_embed(title="🦅 ¡La bandada de arpías ataca!")
+            embed.add_field(name="Iniciativa (1d6 + AGI)", value=init_text, inline=False)
+            embed.add_field(
+                name="Oleada",
+                value=f"{session.oleada_actual}/{session.oleadas_totales}",
+                inline=False,
+            )
+            if texto_npc_inicial:
+                embed.description = texto_npc_inicial + "\n\n" + embed.description
+            session.status_message = await interaction.channel.send(embed=embed)
+            return
+
         await interaction.followup.send(f"El grupo decide atacar a **{enemy_data['nombre']}**.")
         await _iniciar_combate_expedicion(interaction, self.expedition, [self.enemy_id], self.personajes)
 
