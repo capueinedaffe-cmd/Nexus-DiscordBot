@@ -73,7 +73,9 @@ def construir_personaje_enemigo(enemy_id: str) -> Character:
         "energia": 10,
         "esencias_consumidas": 0,
     }
-    return Character(row)
+    personaje = Character(row)
+    personaje.enemy_id = enemy_id  # atributo extra, no viene de la BD; lo usa events.py para el loot
+    return personaje
 
 
 # ── Expediciones ──────────────────────────────────────────────────────
