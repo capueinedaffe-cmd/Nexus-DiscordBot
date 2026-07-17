@@ -64,6 +64,8 @@ async def on_ready():
         logger.error(f"⚠️ Error sincronizando comandos: {e}", exc_info=True)
 
     start_background_tasks()
+    from commands.expedition import start_expedition_background_tasks
+    start_expedition_background_tasks()
     print("✅ Tareas de fondo (timeouts) iniciadas")
 
 
