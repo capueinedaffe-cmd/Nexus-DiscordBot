@@ -1,7 +1,7 @@
 {
   "_nota": "Banco de GIFs por zona. Cada zona en zonas.json referencia un gif_id acá. Si una zona no tiene gif_id o el id no existe en este archivo, el embed simplemente no muestra imagen.",
   "gifs": {
-    "praderas_gif": "https://ejemplo.com/praderas.gif",
+    "praderas_gif": "https://cdn.discordapp.com/attachments/1527684200931790939/1527684246305505451/file_00000000f1c072068bd10bee719ca422.png?ex=6a5b8e53&is=6a5a3cd3&hm=69d6127fb6adbcad4c626cd2c2ab515311bf67cb59e86643b9f24806fe236905&",
     "bosque_gif": "https://ejemplo.com/bosque.gif",
     "valle_gif": "https://ejemplo.com/valle.gif",
     "montana_gif": "https://ejemplo.com/montana.gif",
