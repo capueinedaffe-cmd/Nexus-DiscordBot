@@ -42,6 +42,7 @@ from store.equipment_store import get_equipment
 from maths import combat_math as cmath
 from maths.npc_ai_math import decidir_turno
 from store.expedition_store import construir_personaje_enemigo, armar_oleadas_arpias, ARPIAS_POR_OLEADA
+from session_guard import usuario_ocupado
 
 TURN_TIMEOUT_SECONDS = 10 * 60   # 10 minutos
 LOBBY_TIMEOUT_SECONDS = 5 * 60   # 5 minutos
@@ -540,10 +541,53 @@ class CombatSession:
 
 
 # ── Almacenamiento en memoria ────────────────────────────────────────
-LOBBIES = {}          # {channel_id: CombatLobby}
-ACTIVE_COMBATS = {}   # {channel_id: CombatSession}
+LOBBIES = {}          # {channel_id: [CombatLobby, ...]}  (hasta MAX_SESIONES_POR_CANAL)
+ACTIVE_COMBATS = {}   # {channel_id: [CombatSession, ...]} (hasta MAX_SESIONES_POR_CANAL)
+MAX_SESIONES_POR_CANAL = 3
 
 _bot_ref = None  # se setea en setup_combat_commands para uso de las tareas de fondo
+
+
+def _agregar_lobby(channel_id, lobby):
+    LOBBIES.setdefault(channel_id, []).append(lobby)
+
+
+def _quitar_lobby(channel_id, lobby):
+    lista = LOBBIES.get(channel_id)
+    if not lista:
+        return
+    if lobby in lista:
+        lista.remove(lobby)
+    if not lista:
+        del LOBBIES[channel_id]
+
+
+def _lobby_de_owner(channel_id, owner_id):
+    for lobby in LOBBIES.get(channel_id, []):
+        if owner_id in lobby.owner_ids():
+            return lobby
+    return None
+
+
+def _agregar_combate(channel_id, session):
+    ACTIVE_COMBATS.setdefault(channel_id, []).append(session)
+
+
+def _quitar_combate(channel_id, session):
+    lista = ACTIVE_COMBATS.get(channel_id)
+    if not lista:
+        return
+    if session in lista:
+        lista.remove(session)
+    if not lista:
+        del ACTIVE_COMBATS[channel_id]
+
+
+def _combate_de_owner(channel_id, owner_id):
+    for session in ACTIVE_COMBATS.get(channel_id, []):
+        if owner_id in session.owner_ids():
+            return session
+    return None
 
 
 # ── Vista con el botón Reanudar ──────────────────────────────────────
@@ -555,7 +599,7 @@ class ResumeView(discord.ui.View):
     @discord.ui.button(label="Reanudar", style=discord.ButtonStyle.success, emoji="▶️")
     async def resume(self, interaction: discord.Interaction, button: discord.ui.Button):
         session = self.session
-        if session.channel_id not in ACTIVE_COMBATS:
+        if session not in ACTIVE_COMBATS.get(session.channel_id, []):
             await interaction.response.send_message("Este combate ya no existe.", ephemeral=True)
             return
         if interaction.user.id not in session.owner_ids():
@@ -709,13 +753,31 @@ def setup_combat_commands(bot):
     )
     async def iniciar_combate(interaction: discord.Interaction, personaje: str,
                                personaje2: str = None, personaje3: str = None):
-        if interaction.channel_id in ACTIVE_COMBATS:
+        if await usuario_ocupado(interaction.user.id):
             await interaction.response.send_message(
-                "Ya hay un combate en curso en este canal.", ephemeral=True
+                "Ya estás en un combate o expedición activa. No podés iniciar otro.", ephemeral=True
+            )
+            return
+
+        lobbies_actuales = LOBBIES.get(interaction.channel_id, [])
+        combates_actuales = ACTIVE_COMBATS.get(interaction.channel_id, [])
+        mi_lobby = _lobby_de_owner(interaction.channel_id, interaction.user.id)
+
+        if not mi_lobby and len(lobbies_actuales) >= MAX_SESIONES_POR_CANAL:
+            await interaction.response.send_message(
+                f"Ya hay {MAX_SESIONES_POR_CANAL} lobbies de combate preparándose en este canal. Esperá a que alguno empiece.",
+                ephemeral=True,
+            )
+            return
+
+        if len(combates_actuales) >= MAX_SESIONES_POR_CANAL and not mi_lobby:
+            await interaction.response.send_message(
+                f"Ya hay {MAX_SESIONES_POR_CANAL} combates activos en este canal.", ephemeral=True
             )
             return
 
         nombres_pedidos = [n for n in (personaje, personaje2, personaje3) if n]
+                                 
         if len(nombres_pedidos) > 1 and interaction.user.id != OWNER_ID:
             await interaction.response.send_message(
                 "Solo el anfitrión puede convocar más de un personaje a la vez.",
@@ -733,10 +795,10 @@ def setup_combat_commands(bot):
                 return
             characters.append(char)
 
-        lobby = LOBBIES.get(interaction.channel_id)
+        lobby = mi_lobby
         if lobby is None:
             lobby = CombatLobby(interaction.channel_id)
-            LOBBIES[interaction.channel_id] = lobby
+            _agregar_lobby(interaction.channel_id, lobby)
 
         for char in characters:
             if lobby.has_character(char):
@@ -810,8 +872,8 @@ def setup_combat_commands(bot):
                 trans_rows = await get_character_transformations(char.id)
                 fighters.append(Fighter(char, team, transformaciones=trans_rows))
             session = CombatSession(interaction.channel_id, fighters)
-            ACTIVE_COMBATS[interaction.channel_id] = session
-            del LOBBIES[interaction.channel_id]
+            _agregar_combate(interaction.channel_id, session)
+            _quitar_lobby(interaction.channel_id, lobby)
 
             init_text = "\n".join(f"{name}: {roll}" for name, roll in session.initiative_log)
 
@@ -836,7 +898,7 @@ def setup_combat_commands(bot):
                 embed.description += f"\n\n**Equipo {winning_team + 1} gana!** ({', '.join(ganadores)})"
                 session.status_message = await interaction.channel.send(embed=embed)
                 await _persist_combat_stats(session, {winning_team: "victoria", 1 - winning_team: "derrota"})
-                del ACTIVE_COMBATS[interaction.channel_id]
+                _quitar_combate(interaction.channel_id, session)
             else:
                 # Nuevo panel: es una fase distinta a la preparación, no una edición de esa.
                 session.status_message = await interaction.channel.send(embed=embed)
@@ -848,7 +910,7 @@ def setup_combat_commands(bot):
 
     # ── Helper interno de resolución de acción ──────────────────
     def _get_active_session(interaction):
-        return ACTIVE_COMBATS.get(interaction.channel_id)
+        return _combate_de_owner(interaction.channel_id, interaction.user.id)
 
     def _validate_turn(session, interaction, personaje_nombre):
         """Devuelve (fighter, error_msg). Si error_msg no es None, abortar."""
@@ -1391,7 +1453,7 @@ def setup_combat_commands(bot):
         needed = session.owner_ids()
 
         if session.terminate_votes >= needed:
-            del ACTIVE_COMBATS[interaction.channel_id]
+            _quitar_combate(interaction.channel_id, session)
             await interaction.response.send_message("🏳️ **El combate terminó por acuerdo de todos los jugadores. Sin resultado.**")
         else:
             await interaction.response.send_message(
@@ -1435,7 +1497,7 @@ def setup_combat_commands(bot):
             await interaction.response.send_message("Rendición confirmada. El combate terminó.", ephemeral=True)
             await _publish(interaction, session, embed)
             await _persist_combat_stats(session, {equipo_ganador: "victoria", team: "derrota"})
-            del ACTIVE_COMBATS[interaction.channel_id]
+            _quitar_combate(interaction.channel_id, session)
         else:
             await interaction.response.send_message(
                 f"Voto para rendirse registrado ({len(session.surrender_votes[team])}/{len(needed)} de tu equipo).",
@@ -1466,7 +1528,7 @@ async def _end_combat_victory(interaction, session, result_line):
     await interaction.response.send_message("Combate finalizado.", ephemeral=True)
     await _publish(interaction, session, embed)
     await _persist_combat_stats(session, {winning_team: "victoria", 1 - winning_team: "derrota"})
-    del ACTIVE_COMBATS[interaction.channel_id]
+    _quitar_combate(interaction.channel_id, session)
 
 
 def start_background_tasks():
@@ -1480,40 +1542,40 @@ def start_background_tasks():
     if not check_lobby_timeouts.is_running():
         check_lobby_timeouts.start()
 
-# ── Tarea: revisa timeouts de turno (10 minutos sin actuar) ─────────
+# ── Tarea: revisa timeouts de turno (10 minutos sin actuar) ────────
 @tasks.loop(seconds=60)
 async def check_turn_timeouts():
     now = time.time()
     for channel_id in list(ACTIVE_COMBATS.keys()):
-        session = ACTIVE_COMBATS[channel_id]
-        if session.paused:
-            continue
-        if (now - session.last_action_time) > TURN_TIMEOUT_SECONDS:
-            offender = session.current
-            await apply_level_penalty(offender.character)
-            del ACTIVE_COMBATS[channel_id]
+        for session in list(ACTIVE_COMBATS.get(channel_id, [])):
+            if session.paused:
+                continue
+            if (now - session.last_action_time) > TURN_TIMEOUT_SECONDS:
+                offender = session.current
+                await apply_level_penalty(offender.character)
+                _quitar_combate(channel_id, session)
 
-            if _bot_ref:
-                channel = _bot_ref.get_channel(channel_id)
-                if channel:
-                    penalty_text = (
-                        f" **{offender.name}** pierde 1 nivel por inactividad."
-                        if not offender.is_npc else ""
-                    )
-                    await channel.send(
-                        f"⏱️ **El combate terminó por timeout.** "
-                        f"**{offender.name}** no actuó en 10 minutos.{penalty_text}"
-                    )
+                if _bot_ref:
+                    channel = _bot_ref.get_channel(channel_id)
+                    if channel:
+                        penalty_text = (
+                            f" **{offender.name}** pierde 1 nivel por inactividad."
+                            if not offender.is_npc else ""
+                        )
+                        await channel.send(
+                            f"⏱️ **El combate terminó por timeout.** "
+                            f"**{offender.name}** no actuó en 10 minutos.{penalty_text}"
+                        )
 
 
 # ── Tarea: revisa timeouts de lobby (5 minutos sin empezar) ─────────
 @tasks.loop(seconds=30)
 async def check_lobby_timeouts():
     for channel_id in list(LOBBIES.keys()):
-        lobby = LOBBIES[channel_id]
-        if lobby.is_expired():
-            del LOBBIES[channel_id]
-            if _bot_ref:
-                channel = _bot_ref.get_channel(channel_id)
-                if channel:
-                    await channel.send("⌛ Se canceló el combate.")
+        for lobby in list(LOBBIES.get(channel_id, [])):
+            if lobby.is_expired():
+                _quitar_lobby(channel_id, lobby)
+                if _bot_ref:
+                    channel = _bot_ref.get_channel(channel_id)
+                    if channel:
+                        await channel.send("⌛ Se canceló un combate en preparación por inactividad.")
