@@ -15,7 +15,9 @@ from store.characters_store import Character
 with open("data/zonas/zonas.json", encoding="utf-8") as f:
     _ZONAS_DATA = json.load(f)
 ZONAS = _ZONAS_DATA["zonas"]
-
+with open("data/zonas/zona_gifs.json", encoding="utf-8") as f:
+    _GIFS_DATA = json.load(f)
+GIFS_ZONA = _GIFS_DATA["gifs"]
 with open("data/enemies/enemies1.json", encoding="utf-8") as f:
     _ENEMIGOS_DATA = json.load(f)
 ENEMIGOS = _ENEMIGOS_DATA["enemigos"]
@@ -24,10 +26,16 @@ ENEMIGOS = _ENEMIGOS_DATA["enemigos"]
 def get_zona(zona_id):
     return ZONAS.get(zona_id)
 
+def get_gif_zona(zona_id: str):
+    """Devuelve la URL del GIF de la zona, o None si no tiene."""
+    zona = get_zona(zona_id)
+    if not zona:
+        return None
+    gif_id = zona.get("gif_id")
+    return GIFS_ZONA.get(gif_id) if gif_id else None
 
 def get_enemy(enemy_id):
     return ENEMIGOS.get(enemy_id)
-
 
 def construir_personaje_enemigo(enemy_id: str) -> Character:
     """
