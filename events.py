@@ -55,7 +55,14 @@ async def iniciar_combate_arpias(expedition, personajes_convocados: list, channe
 async def procesar_fin_combate_expedicion(session, winning_team: int):
     """
     Hook llamado por combat.py cuando termina un combate que tiene
-    session.expedition_id seteado. Si ganó el equipo de jugadores (team 0):
+    session.expedition_id seteado.
+
+    Si ganó el equipo enemigo (team 1): la expedición se marca como
+    FRACASO de inmediato — se pierde todo el loot acumulado durante la
+    expedición (finalizar_expedition con exito=False descarta el botín
+    temporal sin repartirlo a nadie).
+
+    Si ganó el equipo de jugadores (team 0):
       - tira el loot de cada enemigo derrotado según su tabla del bestiario.
       - si alguno de los derrotados es el enemy_id del evento final de la
         zona, marca evento_final_completado y agrega el loot garantizado.
@@ -63,13 +70,13 @@ async def procesar_fin_combate_expedicion(session, winning_team: int):
         suma al contador de arpías derrotadas de la expedición.
       - si el derrotado es la Matriarca, marca jefe_oculto_completado y
         agrega su recompensa fija.
-    Si ganó el equipo enemigo (team 1), no hay loot ni consecuencias:
-    la expedición sigue viva (una derrota puntual no la termina sola,
-    salvo que deje al grupo entero incapacitado, lo cual se chequea en
-    /explorar, no acá).
     """
     expedition_id = getattr(session, "expedition_id", None)
-    if not expedition_id or winning_team != 0:
+    if not expedition_id:
+        return
+
+    if winning_team == 1:
+        await finalizar_expedition(expedition_id, exito=False)
         return
 
     derrotados = [f for f in session.fighters if f.team == 1 and not f.alive]
