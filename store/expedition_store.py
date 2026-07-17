@@ -326,7 +326,17 @@ async def usar_ayviar(expedition_id: int, cupos: int = 3) -> None:
     finally:
         await conn.close()
 
-
+async def set_ayviar_activo(expedition_id: int, valor: bool) -> None:
+    conn = await get_db_connection()
+    try:
+        await conn.execute(
+            "UPDATE expeditions SET ayviar_activo = ? WHERE id = ?",
+            (1 if valor else 0, expedition_id)
+        )
+        await conn.commit()
+    finally:
+        await conn.close()
+        
 async def consumir_cupo_ayviar(expedition_id: int) -> None:
     conn = await get_db_connection()
     try:
