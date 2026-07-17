@@ -104,6 +104,7 @@ async def init_db():
                 arpias_derrotadas INTEGER NOT NULL DEFAULT 0,
                 evento_final_completado INTEGER NOT NULL DEFAULT 0,
                 jefe_oculto_completado INTEGER NOT NULL DEFAULT 0,
+                ayviar_activo INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 finished_at TEXT
             )
