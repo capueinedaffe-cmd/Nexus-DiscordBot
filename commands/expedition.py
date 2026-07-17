@@ -20,12 +20,24 @@ import time
 import discord
 from discord import app_commands
 
-from store.characters_store import get_character, get_user_characters, reset_energia_global
+import asyncio
+import random
+
+from store.characters_store import (
+    get_character, get_user_characters, reset_energia_global,
+    get_character_by_id, update_energia,
+)
 from store.expedition_store import (
-    get_zona, get_gif_zona, create_expedition,
+    get_zona, get_gif_zona, get_enemy, create_expedition,
     add_participant, get_participant_ids, get_pistas_publicas,
     get_active_expeditions_by_thread, get_active_expedition_for_owner,
     get_expedition_esperando_ayviar, usar_ayviar, consumir_cupo_ayviar,
+    agregar_loot, incrementar_exploraciones, sumar_pista,
+    finalizar_expedition, construir_personaje_enemigo,
+)
+from maths.expedition_math import (
+    ENERGIA_MAXIMA, COSTE_EXPLORAR, gastar_energia, grupo_incapacitado,
+    sortear_recurso, sortear_enemigo, hay_pista, cantidad_enemigos_hostiles,
 )
 from database import get_db_connection
 from config import OWNER_ID, AYVIAR_ROLE_ID
@@ -125,6 +137,95 @@ async def _publish_lobby(interaction, lobby):
             pass
     lobby.status_message = await interaction.channel.send(embed=lobby.build_embed())
 
+async def _iniciar_combate_expedicion(interaction, expedition, enemy_ids, personajes):
+    """
+    Crea un CombatSession real (el mismo sistema de combate.py) con los
+    participantes de la expedición como equipo 0 y los enemy_ids dados
+    como equipo 1. Queda registrado en ACTIVE_COMBATS del canal, y se le
+    marca expedition_id para poder engancharlo con el loot más adelante.
+    """
+    from commands.combat import (
+        Fighter, CombatSession, ACTIVE_COMBATS, MAX_SESIONES_POR_CANAL,
+        _agregar_combate, _resolver_turnos_npc,
+    )
+
+    combates_actuales = ACTIVE_COMBATS.get(interaction.channel_id, [])
+    if len(combates_actuales) >= MAX_SESIONES_POR_CANAL:
+        await interaction.followup.send(
+            "⚠️ Hay demasiados combates activos en este canal ahora mismo — "
+            "el encuentro se resuelve como un cruce sin consecuencias por esta vez."
+        )
+        return
+
+    jugadores_fighters = [Fighter(char, team=0) for char in personajes]
+    enemigos_fighters = [Fighter(construir_personaje_enemigo(eid), team=1) for eid in enemy_ids]
+
+    session = CombatSession(interaction.channel_id, jugadores_fighters + enemigos_fighters)
+    session.expedition_id = expedition["id"]  # usado en la Etapa 5.5 para repartir el loot al ganar
+    _agregar_combate(interaction.channel_id, session)
+
+    texto_npc_inicial, combate_termino_de_una = await _resolver_turnos_npc(session)
+
+    nombres_enemigos = ", ".join(f.name for f in enemigos_fighters)
+    init_text = "\n".join(f"{name}: {roll}" for name, roll in session.initiative_log)
+    embed = session.status_embed(title=f"⚔️ ¡Emboscada! Aparece: {nombres_enemigos}")
+    embed.add_field(name="Iniciativa (1d6 + AGI)", value=init_text, inline=False)
+    if texto_npc_inicial:
+        embed.description = texto_npc_inicial + "\n\n" + embed.description
+
+    await interaction.followup.send("¡El combate comienza!")
+    session.status_message = await interaction.channel.send(embed=embed)
+    # combate_termino_de_una (caso límite de iniciativa) se deja para la Etapa 5.5,
+    # donde se conecta el cierre de combate con finalizar_expedition/loot.
+
+class NeutralEncounterView(discord.ui.View):
+    """Botones para decidir atacar u observar a una criatura neutral encontrada al explorar."""
+
+    def __init__(self, expedition, enemy_id, personajes, channel_id):
+        super().__init__(timeout=120)
+        self.expedition = expedition
+        self.enemy_id = enemy_id
+        self.personajes = personajes
+        self.channel_id = channel_id
+        self.owner_ids = set(c.owner_id for c in personajes)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id not in self.owner_ids:
+            await interaction.response.send_message("No participás de esta expedición.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="Atacar", style=discord.ButtonStyle.danger, emoji="⚔️")
+    async def atacar(self, interaction: discord.Interaction, button: discord.ui.Button):
+        for child in self.children:
+            child.disabled = True
+        await interaction.response.edit_message(view=self)
+
+        enemy_data = get_enemy(self.enemy_id)
+        if self.enemy_id == "arpia_menor":
+            await interaction.followup.send(
+                "⚠️ ¡Atacaron a una arpía menor! El resto de la bandada no lo va a perdonar..."
+            )
+        await interaction.followup.send(f"El grupo decide atacar a **{enemy_data['nombre']}**.")
+        await _iniciar_combate_expedicion(interaction, self.expedition, [self.enemy_id], self.personajes)
+
+    @discord.ui.button(label="Observar", style=discord.ButtonStyle.secondary, emoji="👀")
+    async def observar(self, interaction: discord.Interaction, button: discord.ui.Button):
+        for child in self.children:
+            child.disabled = True
+        await interaction.response.edit_message(view=self)
+
+        enemy_data = get_enemy(self.enemy_id)
+        loot_posible = enemy_data.get("loot_al_observar", {})
+        for material_id, prob in loot_posible.items():
+            if random.random() < prob:
+                await agregar_loot(self.expedition["id"], material_id, 1)
+                await interaction.followup.send(
+                    f"👁️ El grupo observa a **{enemy_data['nombre']}** en silencio... "
+                    f"y encuentra **1x {material_id}** que dejó caer."
+                )
+                return
+        await interaction.followup.send(f"👁️ El grupo observa a **{enemy_data['nombre']}** y sigue su camino.")
 
 def setup_expedition_commands(bot):
     global _bot_ref
@@ -346,6 +447,93 @@ def setup_expedition_commands(bot):
         await reset_energia_global()
         await interaction.response.send_message("🔋 Energía de todos los personajes repuesta al máximo.")
 
+    # ── /explorar ────────────────────────────────────────────────
+    @bot.tree.command(name="explorar", description="El grupo explora la zona (gasta 1 energía a todos)")
+    async def explorar(interaction: discord.Interaction, personaje: str = None):
+        expedition = await get_active_expedition_for_owner(interaction.channel_id, interaction.user.id)
+        if not expedition:
+            await interaction.response.send_message(
+                "No participás de ninguna expedición activa en este canal.", ephemeral=True
+            )
+            return
+
+        await interaction.response.defer()
+
+        participant_ids = await get_participant_ids(expedition["id"])
+        personajes = [await get_character_by_id(cid) for cid in participant_ids]
+
+        # Gastar energía a todos los participantes (todos exploran a la vez)
+        for char in personajes:
+            nueva_energia = gastar_energia(char.energia, COSTE_EXPLORAR)
+            await update_energia(char.id, nueva_energia)
+            char.energia = nueva_energia
+
+        # Si el grupo entero quedó incapacitado, la expedición fracasa acá mismo.
+        if grupo_incapacitado([c.energia for c in personajes]):
+            await finalizar_expedition(expedition["id"], exito=False)
+            await interaction.followup.send(
+                "💤 **Todo el grupo quedó incapacitado.** La expedición fracasa y se pierde "
+                "todo lo recolectado (excepto la experiencia)."
+            )
+            return
+
+        zona = get_zona(expedition["zona_id"])
+        exploraciones_nuevas = await incrementar_exploraciones(expedition["id"])
+
+        # Evento de pista: se anuncia solo, con unos segundos de suspenso,
+        # ANTES de mostrar el resultado normal de la exploración.
+        if hay_pista(zona["pista"], exploraciones_nuevas):
+            pistas_nuevas = await sumar_pista(expedition["id"])
+            embed_pista = discord.Embed(
+                title="🔍 ¡Pista encontrada!",
+                description=(
+                    f"El grupo encuentra una pista en **{zona['nombre']}**. "
+                    f"Pistas: {pistas_nuevas}/{zona['pistas_necesarias']}."
+                ),
+                color=discord.Color.gold(),
+            )
+            await interaction.followup.send(embed=embed_pista)
+            await asyncio.sleep(3)
+
+        # Resultado normal de la exploración: 50/50 recurso vs enemigo.
+        if random.random() < 0.5:
+            resultado = sortear_recurso(zona)
+            if not resultado:
+                await interaction.followup.send("El grupo explora, pero no encuentra nada esta vez.")
+                return
+            material_id, cantidad = resultado
+            await agregar_loot(expedition["id"], material_id, cantidad)
+            await interaction.followup.send(
+                f"🌿 El grupo encuentra **{cantidad}x {material_id}**. Se guarda en el botín de la expedición."
+            )
+            return
+
+        enemy_id = sortear_enemigo(zona)
+        if not enemy_id:
+            await interaction.followup.send("El grupo explora, pero no encuentra nada esta vez.")
+            return
+
+        enemy_data = get_enemy(enemy_id)
+
+        if enemy_data.get("huye"):
+            await interaction.followup.send(
+                f"🏃 Un **{enemy_data['nombre']}** aparece, pero huye antes de que puedan reaccionar."
+            )
+            return
+
+        if enemy_data.get("neutral"):
+            view = NeutralEncounterView(expedition, enemy_id, personajes, interaction.channel_id)
+            await interaction.followup.send(
+                f"👁️ El grupo se topa con **{enemy_data['nombre']}**. Parece tranquilo... ¿qué hacen?",
+                view=view,
+            )
+            return
+
+        # Hostil: combate inmediato, sin elección.
+        cantidad_hostiles = cantidad_enemigos_hostiles()
+        await _iniciar_combate_expedicion(
+            interaction, expedition, [enemy_id] * cantidad_hostiles, personajes
+        )
 
 def start_expedition_background_tasks():
     """Llamar desde on_ready, igual que start_background_tasks() de combat.py."""
