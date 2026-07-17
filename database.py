@@ -96,7 +96,7 @@ async def init_db():
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS expeditions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                lider_owner_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+                lider_owner_id INTEGER NOT NULL,
                 thread_id INTEGER NOT NULL,
                 zona_id TEXT NOT NULL,
                 estado TEXT NOT NULL DEFAULT 'activa',
@@ -110,7 +110,15 @@ async def init_db():
                 finished_at TEXT
             )
         ''')
-
+        
+        # Solo puede haber UNA expedición ACTIVA por hilo/canal a la vez
+        # (índice único parcial: no bloquea reusar el mismo thread_id
+        # una vez que la expedición anterior ya terminó).
+        await conn.execute('''
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_expedition_activa_por_thread
+            ON expeditions(thread_id) WHERE estado = 'activa'
+        ''')
+        
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS expedition_participants (
                 expedition_id INTEGER NOT NULL REFERENCES expeditions(id) ON DELETE CASCADE,
