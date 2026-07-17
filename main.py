@@ -135,6 +135,12 @@ try:
     logger.info("✅ Comando de prueba de eventos registrado")
 except Exception as e:
     logger.error(f"❌ Error registrando eventos de prueba: {e}", exc_info=True)
+
+try:
+    setup_expedition_commands(bot)
+    logger.info("✅ Comando de prueba de expedición registrado")
+except Exception as e:
+    logger.error(f"❌ Error registrando expedición: {e}", exc_info=True)
     
 logger.info("=== FIN REGISTRO DE COMANDOS ===")
 
