@@ -3,6 +3,7 @@
   "zonas": {
     "praderas": {
       "nombre": "Praderas",
+      "gif_id": "praderas_gif",
       "orden": 1,
       "es_tutorial": true,
       "recursos": [
@@ -23,6 +24,7 @@
     },
     "bosque": {
       "nombre": "Bosque",
+      "gif_id": "bosque_gif",
       "orden": 2,
       "recursos": [
         {"material_id": "agua", "cantidad_min": 1, "cantidad_max": 1, "peso": 3},
@@ -51,6 +53,7 @@
     },
     "valle": {
       "nombre": "Valle",
+      "gif_id": "valle_gif",
       "orden": 3,
       "recursos": [
         {"material_id": "agua", "cantidad_min": 1, "cantidad_max": 1, "peso": 3},
@@ -79,6 +82,7 @@
     },
     "montana": {
       "nombre": "Montaña",
+      "gif_id": "montana_id",
       "orden": 4,
       "recursos": [
         {"material_id": "hongo_fummi", "cantidad_min": 1, "cantidad_max": 2, "peso": 4},
@@ -112,6 +116,7 @@
     },
     "colinas_retumbantes": {
       "nombre": "Colinas Retumbantes",
+      "gif_id": "colinas_retumbantes.gif",
       "orden": 5,
       "recursos": [
         {"material_id": "roca", "cantidad_min": 1, "cantidad_max": 2, "peso": 4},
