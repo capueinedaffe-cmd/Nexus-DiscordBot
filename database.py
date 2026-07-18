@@ -96,7 +96,6 @@ async def init_db():
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS expeditions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                lider_owner_id INTEGER NOT NULL,
                 thread_id INTEGER NOT NULL,
                 zona_id TEXT NOT NULL,
                 estado TEXT NOT NULL DEFAULT 'activa',
@@ -105,9 +104,13 @@ async def init_db():
                 arpias_derrotadas INTEGER NOT NULL DEFAULT 0,
                 evento_final_completado INTEGER NOT NULL DEFAULT 0,
                 jefe_oculto_completado INTEGER NOT NULL DEFAULT 0,
-                ayviar_activo INTEGER NOT NULL DEFAULT 0,
+                lider_owner_id INTEGER,
+                ayviar_usado INTEGER NOT NULL DEFAULT 0,
+                ayviar_cupos_restantes INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 finished_at TEXT
+            )
+        ''')
             )
         ''')
         
