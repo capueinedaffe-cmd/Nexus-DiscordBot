@@ -407,9 +407,13 @@ def setup_expedition_commands(bot):
             return
 
         pistas_iniciales = await get_pistas_publicas(lobby.zona_id)
+        zona = get_zona(lobby.zona_id)
+        thread_id = zona.get("thread_id", lobby.channel_id)
+        
         expedition = await create_expedition(
-            lobby.channel_id, lobby.zona_id, lobby.lider_owner_id, pistas_iniciales
+            thread_id, lobby.zona_id, lobby.lider_owner_id, pistas_iniciales
         )
+
         for char in lobby.participants:
             await add_participant(expedition["id"], char.id)
         _quitar_lobby(interaction.channel_id, lobby)
@@ -430,8 +434,25 @@ def setup_expedition_commands(bot):
         if gif_url:
             embed.set_image(url=gif_url)
 
-        await interaction.response.send_message("¡Todos listos! La expedición comienza.")
-        await interaction.channel.send(embed=embed)
+                await interaction.response.send_message("¡Todos listos! La expedición comienza.")
+        
+        # Enviar embed al hilo de la zona
+        hilo = _bot_ref.get_channel(thread_id) if _bot_ref else None
+        if hilo:
+            await hilo.send(
+                f"🗺️ La expedición a **{lobby.zona_nombre}** ha comenzado. "
+                f"Participantes: {', '.join(c.name for c in lobby.participants)}",
+                embed=embed
+            )
+            # Mensaje informativo en el canal general con link al hilo
+            await interaction.channel.send(
+                f"🗺️ La expedición a **{lobby.zona_nombre}** ha comenzado en {hilo.mention}. "
+                f"Usá los comandos de expedición ahí dentro."
+            )
+        else:
+            # Fallback: si no encuentra el hilo, usa el canal general
+            await interaction.channel.send(embed=embed)
+
 
     # ── /enviar_ayviar ───────────────────────────────────────────
     @bot.tree.command(name="enviar_ayviar", description="[Solo el líder] Pide ayuda urgente, una sola vez por expedición")
