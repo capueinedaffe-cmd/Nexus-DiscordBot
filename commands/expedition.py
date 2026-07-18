@@ -157,17 +157,16 @@ async def _actualizar_panel_expedicion(expedition, thread):
     
     embed = await _build_expedition_panel_embed(expedition, personajes, loot_rows)
     
-    msg = EXPEDITION_PANELS.get(expedition["id"])
+        msg = EXPEDITION_PANELS.get(expedition["id"])
     if msg:
         try:
-            await msg.edit(embed=embed)
-            return
+            await msg.delete()
         except (discord.NotFound, discord.HTTPException):
             pass
     
-    # Si no hay mensaje guardado o fue borrado, crear uno nuevo
     msg = await thread.send(embed=embed)
     EXPEDITION_PANELS[expedition["id"]] = msg
+
 
 
 async def personaje_propio_autocomplete(interaction: discord.Interaction, current: str):
