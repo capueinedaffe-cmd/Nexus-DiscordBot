@@ -7,6 +7,7 @@
       "region_id": "region_1",
       "orden": 1,
       "es_tutorial": true,
+      "prob_recurso": 0.7,
       "recursos": [
         {"material_id": "fruta", "cantidad_min": 1, "cantidad_max": 2, "peso": 5},
         {"material_id": "roca", "cantidad_min": 1, "cantidad_max": 1, "peso": 3}
@@ -28,6 +29,7 @@
       "gif_id": "bosque_gif",
       "region_id": "region_1",
       "orden": 2,
+      "prob_recurso": 0.6,
       "recursos": [
         {"material_id": "agua", "cantidad_min": 1, "cantidad_max": 1, "peso": 3},
         {"material_id": "baya", "cantidad_min": 1, "cantidad_max": 2, "peso": 4},
@@ -58,6 +60,7 @@
       "gif_id": "valle_gif",
       "region_id": "region_1",
       "orden": 3,
+      "prob_recurso": 0.5,
       "recursos": [
         {"material_id": "agua", "cantidad_min": 1, "cantidad_max": 1, "peso": 3},
         {"material_id": "acoi", "cantidad_min": 1, "cantidad_max": 2, "peso": 3},
@@ -88,6 +91,7 @@
       "gif_id": "montana_id",
       "region_id": "region_1",
       "orden": 4,
+      "prob_recurso": 0.4,
       "recursos": [
         {"material_id": "hongo_fummi", "cantidad_min": 1, "cantidad_max": 2, "peso": 4},
         {"material_id": "hongo_jummi", "cantidad_min": 1, "cantidad_max": 1, "peso": 2},
@@ -123,6 +127,7 @@
       "gif_id": "colinas_retumbantes.gif",
       "region_id": "region_1",
       "orden": 5,
+      "prob_recurso": 0.3,
       "recursos": [
         {"material_id": "roca", "cantidad_min": 1, "cantidad_max": 2, "peso": 4},
         {"material_id": "cuarzo", "cantidad_min": 1, "cantidad_max": 1, "peso": 3},
