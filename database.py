@@ -73,7 +73,7 @@ async def init_db():
             )
         ''')
         
-        await conn.execute("CREATE INDEX IF NOT EXISTS idx_char_mat ON character_materials(character_id)")
+                
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS character_materials (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -84,8 +84,7 @@ async def init_db():
             )
         ''')
 
-        await conn.execute("CREATE INDEX IF NOT EXISTS idx_char_equip ON character_equipment(character_id)")
-        await conn.execute('''
+                await conn.execute('''
             CREATE TABLE IF NOT EXISTS character_equipment (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
@@ -138,6 +137,9 @@ async def init_db():
                 pistas_publicas INTEGER NOT NULL DEFAULT 0
             )
         ''')
+
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_char_mat ON character_materials(character_id)")
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_char_equip ON character_equipment(character_id)")
 
         await conn.commit()
     finally:
