@@ -690,7 +690,7 @@ async def habilidad_autocomplete(interaction: discord.Interaction, current: str)
         return []
 
     opciones = []
-    for hab_id, hab in get_ability.__globals__["HABILIDADES"].items():
+    for hab_id, hab in HABILIDADES.items():
         if hab.get("tipo") == "tecnica":
             continue  # las técnicas se usan con /usar_tecnica, no acá
         if hab["elemento"] != fighter.elemento:
@@ -719,7 +719,7 @@ async def tecnica_autocomplete(interaction: discord.Interaction, current: str):
         return []
 
     opciones = []
-    for hab_id, hab in get_ability.__globals__["HABILIDADES"].items():
+    for hab_id, hab in HABILIDADES.items():
         if hab.get("tipo") != "tecnica":
             continue
         if hab["elemento"] != fighter.elemento:
