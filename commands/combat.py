@@ -634,7 +634,7 @@ class ResumeView(discord.ui.View):
 
 # ── Autocompletado ───────────────────────────────────────────────────
 async def personaje_autocomplete(interaction: discord.Interaction, current: str):
-    session = ACTIVE_COMBATS.get(interaction.channel_id)
+    session = _combate_de_owner(interaction.channel_id, interaction.user.id)
     if not session:
         return []
     opts = [f for f in session.fighters if f.owner_id == interaction.user.id]
@@ -645,7 +645,7 @@ async def personaje_autocomplete(interaction: discord.Interaction, current: str)
 
 
 async def objetivo_autocomplete(interaction: discord.Interaction, current: str):
-    session = ACTIVE_COMBATS.get(interaction.channel_id)
+    session = _combate_de_owner(interaction.channel_id, interaction.user.id)
     if not session:
         return []
     opts = [f for f in session.fighters if f.alive]
@@ -656,7 +656,7 @@ async def objetivo_autocomplete(interaction: discord.Interaction, current: str):
 
 
 async def transformacion_autocomplete(interaction: discord.Interaction, current: str):
-    session = ACTIVE_COMBATS.get(interaction.channel_id)
+    session = _combate_de_owner(interaction.channel_id, interaction.user.id)
     if not session:
         return []
     nombre_personaje = interaction.namespace.personaje
@@ -676,7 +676,7 @@ async def transformacion_autocomplete(interaction: discord.Interaction, current:
 
 
 async def habilidad_autocomplete(interaction: discord.Interaction, current: str):
-    session = ACTIVE_COMBATS.get(interaction.channel_id)
+    session = _combate_de_owner(interaction.channel_id, interaction.user.id)
     if not session:
         return []
     nombre_personaje = interaction.namespace.personaje
@@ -705,7 +705,7 @@ async def habilidad_autocomplete(interaction: discord.Interaction, current: str)
 
 
 async def tecnica_autocomplete(interaction: discord.Interaction, current: str):
-    session = ACTIVE_COMBATS.get(interaction.channel_id)
+    session = _combate_de_owner(interaction.channel_id, interaction.user.id)
     if not session:
         return []
     nombre_personaje = interaction.namespace.personaje
