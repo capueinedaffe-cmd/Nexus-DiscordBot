@@ -32,8 +32,9 @@ from store.expedition_store import (
     add_participant, get_participant_ids, get_pistas_publicas,
     get_active_expeditions_by_thread, get_active_expedition_for_owner,
     get_expedition_esperando_ayviar, usar_ayviar, consumir_cupo_ayviar,
-    agregar_loot, incrementar_exploraciones, sumar_pista,
+    agregar_loot, quitar_loot, get_loot, incrementar_exploraciones, sumar_pista,
     finalizar_expedition, construir_personaje_enemigo,
+    get_jummi_contador, set_jummi_contador, hacer_publico,
 )
 from maths.expedition_math import (
     ENERGIA_MAXIMA, COSTE_EXPLORAR, RECUPERACION_CRUDO, TURNOS_VENENO_JUMMI,
