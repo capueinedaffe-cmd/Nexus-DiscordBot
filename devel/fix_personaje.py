@@ -32,8 +32,8 @@ async def main():
     await listar_personajes()
 
     # Ajustá estos valores:
-    ID_PERSONAJE = 1          # ← poné el ID del personaje
-    NUEVO_ELEMENTO = "ion"   # ← poné el elemento nuevo
+    ID_PERSONAJE = 2          # ← poné el ID del personaje
+    NUEVO_ELEMENTO = "kinetico"   # ← poné el elemento nuevo
 
     await cambiar_elemento(ID_PERSONAJE, NUEVO_ELEMENTO)
     await listar_personajes()
