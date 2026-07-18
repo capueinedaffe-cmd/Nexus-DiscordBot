@@ -10,7 +10,13 @@
     "natura",
     "mortis",
     "orden",
-    "caos"
+    "caos",
+    "mistico",
+    "kinetico"
+  ],
+  "restringidos": [
+    "orden",
+    "caos",
   ],
   "nombres": {
     "radiacion": "Radiación (fuego)",
@@ -22,7 +28,9 @@
     "natura": "Natura (vida/naturaleza)",
     "mortis": "Mortis (muerte)",
     "orden": "Orden (estabilidad/pureza)",
-    "caos": "Caos (creación/corrupción)"
+    "caos": "Caos (creación/corrupción)",
+    "mistico": "Místico (espiritual/etéreo)",
+    "kinetico": "Kinético (energía/movimiento)"
   },
   "opuestos": {
     "radiacion": "nano",
@@ -34,7 +42,9 @@
     "natura": "mortis",
     "mortis": "natura",
     "orden": "caos",
-    "caos": "orden"
+    "caos": "orden",
+    "mistico": "kinetico",
+    "kinetico": "mistico"
   },
   "efectividad": {
     "radiacion": {
@@ -47,7 +57,9 @@
       "natura": "efectivo",
       "mortis": "efectivo",
       "orden": "no_efectivo",
-      "caos": "no_efectivo"
+      "caos": "no_efectivo",
+      "mistico": "neutral",
+      "kinetico": "neutral"
     },
     "ion": {
       "radiacion": "neutral",
@@ -59,7 +71,9 @@
       "natura": "efectivo",
       "mortis": "neutral",
       "orden": "no_efectivo",
-      "caos": "no_efectivo"
+      "caos": "no_efectivo",
+      "mistico": "neutral",
+      "kinetico": "efectivo"
     },
     "nano": {
       "radiacion": "no_efectivo",
@@ -71,7 +85,9 @@
       "natura": "no_efectivo",
       "mortis": "neutral",
       "orden": "no_efectivo",
-      "caos": "no_efectivo"
+      "caos": "no_efectivo",
+      "mistico": "efectivo",
+      "kinetico": "neutral"
     },
     "cuantico": {
       "radiacion": "efectivo",
@@ -83,7 +99,9 @@
       "natura": "no_efectivo",
       "mortis": "neutral",
       "orden": "no_efectivo",
-      "caos": "no_efectivo"
+      "caos": "no_efectivo",
+      "mistico": "efectivo",
+      "kinetico": "no_efectivo"
     },
     "terra": {
       "radiacion": "neutral",
@@ -95,7 +113,9 @@
       "natura": "neutral",
       "mortis": "neutral",
       "orden": "no_efectivo",
-      "caos": "no_efectivo"
+      "caos": "no_efectivo",
+      "mistico": "no_efectivo",
+      "kinetico": "efectivo"
     },
     "hadron": {
       "radiacion": "no_efectivo",
@@ -107,7 +127,9 @@
       "natura": "efectivo",
       "mortis": "neutral",
       "orden": "no_efectivo",
-      "caos": "no_efectivo"
+      "caos": "no_efectivo",
+      "mistico": "neutral",
+      "kinetico": "efectivo"
     },
     "natura": {
       "radiacion": "no_efectivo",
@@ -119,7 +141,9 @@
       "natura": "neutral",
       "mortis": "no_efectivo",
       "orden": "no_efectivo",
-      "caos": "no_efectivo"
+      "caos": "no_efectivo",
+      "mistico": "efectivo",
+      "kinetico": "neutral"
     },
     "mortis": {
       "radiacion": "no_efectivo",
@@ -131,7 +155,9 @@
       "natura": "efectivo",
       "mortis": "neutral",
       "orden": "neutral",
-      "caos": "neutral"
+      "caos": "neutral",
+      "mistico": "no_efectivo",
+      "kinetico": "neutral"
     },
     "orden": {
       "radiacion": "efectivo",
@@ -143,7 +169,9 @@
       "natura": "efectivo",
       "mortis": "efectivo",
       "orden": "neutral",
-      "caos": "neutral"
+      "caos": "neutral",
+      "mistico": "efectivo",
+      "kinetico": "efectivo"
     },
     "caos": {
       "radiacion": "efectivo",
@@ -155,7 +183,37 @@
       "natura": "efectivo",
       "mortis": "efectivo",
       "orden": "neutral",
-      "caos": "neutral"
+      "caos": "neutral",
+      "mistico": "efectivo",
+      "kinetico": "efectivo"
+    },
+    "mistico": {
+      "radiacion": "neutral",
+      "ion": "neutral",
+      "nano": "no_efectivo",
+      "cuantico": "no_efectivo",
+      "terra": "efectivo",
+      "hadron": "neutral",
+      "natura": "no_efectivo",
+      "mortis": "efectivo",
+      "orden": "no_efectivo",
+      "caos": "no_efectivo",
+      "mistico": "neutral",
+      "kinetico": "no_efectivo"
+    },
+    "kinetico": {
+      "radiacion": "neutral",
+      "ion": "no_efectivo",
+      "nano": "neutral",
+      "cuantico": "efectivo",
+      "terra": "no_efectivo",
+      "hadron": "no_efectivo",
+      "natura": "neutral",
+      "mortis": "neutral",
+      "orden": "no_efectivo",
+      "caos": "no_efectivo",
+      "mistico": "efectivo",
+      "kinetico": "neutral"
     }
   }
 }
