@@ -77,7 +77,7 @@ async def procesar_fin_combate_expedicion(session, winning_team: int):
 
     if winning_team == 1:
         await finalizar_expedition(expedition_id, exito=False)
-        return
+        return True  # True = la expedición fracasó, combat.py avisa al canal
 
     derrotados = [f for f in session.fighters if f.team == 1 and not f.alive]
     if not derrotados:
@@ -131,3 +131,5 @@ async def procesar_fin_combate_expedicion(session, winning_team: int):
 
     for _ in range(arpias_derrotadas_este_combate):
         await registrar_arpia_derrotada(expedition_id)
+
+    return False  # False = la expedición sigue viva
