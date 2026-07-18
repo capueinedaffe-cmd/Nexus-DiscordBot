@@ -51,8 +51,14 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
+_db_ya_inicializada = False
+
+@bot.event
 async def on_ready():
-    await init_db()
+    global _db_ya_inicializada
+    if not _db_ya_inicializada:
+        await init_db()
+        _db_ya_inicializada = True
     print(f"✅ Bot conectado como {bot.user}")
     try:
         synced = await bot.tree.sync()
