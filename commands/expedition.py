@@ -36,9 +36,19 @@ from store.expedition_store import (
     finalizar_expedition, construir_personaje_enemigo,
 )
 from maths.expedition_math import (
-    ENERGIA_MAXIMA, COSTE_EXPLORAR, gastar_energia, grupo_incapacitado,
+    ENERGIA_MAXIMA, COSTE_EXPLORAR, RECUPERACION_CRUDO, TURNOS_VENENO_JUMMI,
+    gastar_energia, recuperar_energia, grupo_incapacitado,
     sortear_recurso, sortear_enemigo, hay_pista, cantidad_enemigos_hostiles,
+    probabilidad_cocina, cocinar_exitoso, avanzar_jummi,
 )
+import json
+
+with open("data/materials/materials.json", encoding="utf-8") as f:
+    MATERIALES = json.load(f)["materiales"]
+
+with open("data/recetas/recetas.json", encoding="utf-8") as f:
+    RECETAS = json.load(f)["recetas"]
+  
 from database import get_db_connection
 from config import OWNER_ID, AYVIAR_ROLE_ID
 from session_guard import usuario_ocupado
@@ -483,10 +493,25 @@ def setup_expedition_commands(bot):
         personajes = [await get_character_by_id(cid) for cid in participant_ids]
 
         # Gastar energía a todos los participantes (todos exploran a la vez)
+        # Gastar energía a todos los participantes (todos exploran a la vez)
         for char in personajes:
             nueva_energia = gastar_energia(char.energia, COSTE_EXPLORAR)
             await update_energia(char.id, nueva_energia)
             char.energia = nueva_energia
+
+        # Avanzar el veneno demorado del hongo jummi (si alguien lo comió crudo)
+        for char in personajes:
+            contador_actual = await get_jummi_contador(expedition["id"], char.id)
+            if contador_actual > 0:
+                nuevo_contador = avanzar_jummi(contador_actual)
+                await set_jummi_contador(expedition["id"], char.id, nuevo_contador)
+                if nuevo_contador == 0:
+                    await update_energia(char.id, 0)
+                    char.energia = 0
+                    await interaction.followup.send(
+                        f"🍄 El veneno del hongo jummi finalmente hace efecto: "
+                        f"**{char.name}** queda incapacitado."
+                    )
 
         # Si el grupo entero quedó incapacitado, la expedición fracasa acá mismo.
         if grupo_incapacitado([c.energia for c in personajes]):
@@ -553,6 +578,173 @@ def setup_expedition_commands(bot):
         cantidad_hostiles = cantidad_enemigos_hostiles()
         await _iniciar_combate_expedicion(
             interaction, expedition, [enemy_id] * cantidad_hostiles, personajes
+        )
+
+    # ── /comer ───────────────────────────────────────────────────
+    @bot.tree.command(name="comer", description="Comé un ingrediente crudo del botín de la expedición (+1 energía)")
+    @app_commands.describe(personaje="Tu personaje que come", material="Qué comer")
+    @app_commands.autocomplete(personaje=personaje_propio_autocomplete)
+    async def comer(interaction: discord.Interaction, personaje: str, material: str):
+        expedition = await get_active_expedition_for_owner(interaction.channel_id, interaction.user.id)
+        if not expedition:
+            await interaction.response.send_message(
+                "No participás de ninguna expedición activa en este canal.", ephemeral=True
+            )
+            return
+
+        char = await get_character(interaction.user.id, personaje)
+        if not char:
+            await interaction.response.send_message(
+                f"No tenés un personaje llamado **{personaje}**.", ephemeral=True
+            )
+            return
+
+        material_datos = MATERIALES.get(material)
+        if not material_datos or not material_datos.get("comestible"):
+            await interaction.response.send_message("Eso no se puede comer.", ephemeral=True)
+            return
+
+        ok = await quitar_loot(expedition["id"], material, 1)
+        if not ok:
+            await interaction.response.send_message(
+                f"No hay **{material_datos['nombre']}** en el botín de la expedición.", ephemeral=True
+            )
+            return
+
+        if material_datos.get("toxico_crudo"):
+            await set_jummi_contador(expedition["id"], char.id, TURNOS_VENENO_JUMMI)
+            await interaction.response.send_message(
+                f"🍄☠️ **{char.name}** come **{material_datos['nombre']}** crudo... "
+                f"algo no se siente bien. El efecto se sentirá en unas exploraciones."
+            )
+            return
+
+        nueva_energia = recuperar_energia(char.energia, RECUPERACION_CRUDO)
+        await update_energia(char.id, nueva_energia)
+        await interaction.response.send_message(
+            f"🍎 **{char.name}** come **{material_datos['nombre']}** crudo. (+{RECUPERACION_CRUDO} energía)"
+        )
+
+   # ── /acampar ─────────────────────────────────────────────────
+    @bot.tree.command(name="acampar", description="El grupo acampa: un personaje intenta cocinar (no gasta energía)")
+    @app_commands.describe(
+        personaje="Tu personaje, el que cocina",
+        receta="Qué receta intentar",
+        ingrediente="Solo si la receta lo pide: qué ingrediente variable usar",
+    )
+    @app_commands.autocomplete(personaje=personaje_propio_autocomplete)
+    async def acampar(interaction: discord.Interaction, personaje: str, receta: str, ingrediente: str = None):
+        expedition = await get_active_expedition_for_owner(interaction.channel_id, interaction.user.id)
+        if not expedition:
+            await interaction.response.send_message(
+                "No participás de ninguna expedición activa en este canal.", ephemeral=True
+            )
+            return
+
+        char = await get_character(interaction.user.id, personaje)
+        if not char:
+            await interaction.response.send_message(
+                f"No tenés un personaje llamado **{personaje}**.", ephemeral=True
+            )
+            return
+
+        receta_datos = RECETAS.get(receta)
+        if not receta_datos:
+            await interaction.response.send_message("Esa receta no existe.", ephemeral=True)
+            return
+
+        loot_actual = {row["material_id"]: row["cantidad"] for row in await get_loot(expedition["id"])}
+
+        # Armar la lista de (material_id, cantidad) que hay que consumir
+        a_consumir = []
+        if "ingredientes_fijos" in receta_datos:
+            for mat_id, cant in receta_datos["ingredientes_fijos"].items():
+                a_consumir.append((mat_id, cant))
+        if "ingrediente_variable" in receta_datos:
+            opciones = receta_datos["ingrediente_variable"]
+            if not ingrediente or ingrediente not in opciones:
+                await interaction.response.send_message(
+                    f"Esta receta necesita elegir un ingrediente entre: {', '.join(opciones)}.",
+                    ephemeral=True,
+                )
+                return
+            a_consumir.append((ingrediente, receta_datos.get("cantidad_variable", 1)))
+
+        faltantes = [
+            f"{mat_id} ({loot_actual.get(mat_id, 0)}/{cant})"
+            for mat_id, cant in a_consumir if loot_actual.get(mat_id, 0) < cant
+        ]
+        if faltantes:
+            await interaction.response.send_message(
+                f"No hay suficientes ingredientes en el botín: {', '.join(faltantes)}.", ephemeral=True
+            )
+            return
+
+        # Los ingredientes se pierden se cocine bien o mal
+        for mat_id, cant in a_consumir:
+            await quitar_loot(expedition["id"], mat_id, cant)
+
+        if not cocinar_exitoso(char.res):
+            await interaction.response.send_message(
+                f"🔥 **{char.name}** intenta cocinar **{receta_datos['nombre']}**, pero se arruina. "
+                f"Los ingredientes se pierden.",
+            )
+            return
+
+        participant_ids = await get_participant_ids(expedition["id"])
+        for cid in participant_ids:
+            miembro = await get_character_by_id(cid)
+            nueva_energia = recuperar_energia(miembro.energia, receta_datos["energia_base"])
+            await update_energia(cid, nueva_energia)
+
+        await interaction.response.send_message(
+            f"🍲 **{char.name}** cocina **{receta_datos['nombre']}** con éxito. "
+            f"Todo el grupo recupera {receta_datos['energia_base']} de energía."
+        )
+
+    # ── /compartir_conocimiento ──────────────────────────────────
+    @bot.tree.command(name="compartir_conocimiento", description="Hace públicas las pistas de esta zona para futuros grupos")
+    async def compartir_conocimiento(interaction: discord.Interaction):
+        expedition = await get_active_expedition_for_owner(interaction.channel_id, interaction.user.id)
+        if not expedition:
+            await interaction.response.send_message(
+                "No participás de ninguna expedición activa en este canal.", ephemeral=True
+            )
+            return
+
+        if not expedition["evento_final_completado"]:
+            await interaction.response.send_message(
+                "Solo se puede compartir el conocimiento después de completar el evento final de la zona.",
+                ephemeral=True,
+            )
+            return
+
+        await hacer_publico(expedition["zona_id"], expedition["pistas"])
+        zona = get_zona(expedition["zona_id"])
+        await interaction.response.send_message(
+            f"📖 El grupo comparte lo que descubrió en **{zona['nombre']}**. "
+            f"Futuras expediciones a esta zona van a empezar con {expedition['pistas']} pista(s) ya conocidas."
+        )
+
+    # ── /retirarse_expedicion ────────────────────────────────────
+    @bot.tree.command(name="retirarse_expedicion", description="[Solo el líder] Termina la expedición como éxito, se conserva el botín")
+    async def retirarse_expedicion(interaction: discord.Interaction):
+        expedition = await get_active_expedition_for_owner(interaction.channel_id, interaction.user.id)
+        if not expedition:
+            await interaction.response.send_message(
+                "No participás de ninguna expedición activa en este canal.", ephemeral=True
+            )
+            return
+
+        if expedition["lider_owner_id"] != interaction.user.id:
+            await interaction.response.send_message(
+                "Solo el líder de la expedición puede decidir retirarse.", ephemeral=True
+            )
+            return
+
+        await finalizar_expedition(expedition["id"], exito=True)
+        await interaction.response.send_message(
+            "🏕️ **El grupo se retira de la expedición.** Todo lo recolectado se reparte entre los participantes."
         )
 
 def start_expedition_background_tasks():
