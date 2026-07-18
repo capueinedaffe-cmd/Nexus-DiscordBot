@@ -37,7 +37,7 @@ from store.characters_store import (
     get_character, get_user_characters, apply_level_penalty,
     get_character_transformations, record_combat_result
 )
-from store.abilities_store import get_ability, min_level_for
+from store.abilities_store import get_ability, min_level_for, HABILIDADES
 from store.equipment_store import get_equipment
 from maths import combat_math as cmath
 from maths.npc_ai_math import decidir_turno
