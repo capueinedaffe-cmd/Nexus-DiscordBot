@@ -13,7 +13,14 @@ import discord
 
 from commands.combat import Fighter, CombatSession, ACTIVE_COMBATS, _agregar_combate, _resolver_turnos_npc
 from store.characters_store import get_character
-from database import get_db_connection as _gdc  # import local, evita ciclo
+from store.expedition_store import (
+    get_zona, get_enemy, agregar_loot,
+    marcar_evento_final_completado, marcar_jefe_oculto_completado,
+    registrar_arpia_derrotada, finalizar_expedition,
+    construir_personaje_enemigo, armar_oleadas_arpias,
+)
+from database import get_db_connection as _gdc
+
 
 
 async def iniciar_combate_arpias(expedition, personajes_convocados: list, channel_id: int, incluir_matriarca: bool):
