@@ -561,7 +561,9 @@ def setup_expedition_commands(bot):
             await asyncio.sleep(3)
 
         # Resultado normal de la exploración: 50/50 recurso vs enemigo.
-        if random.random() < 0.5:
+                # Probabilidad de recurso vs enemigo definida por zona (default 0.5)
+        prob_recurso = zona.get("prob_recurso", 0.5)
+        if random.random() < prob_recurso:
             resultado = sortear_recurso(zona)
             if not resultado:
                 await interaction.followup.send("El grupo explora, pero no encuentra nada esta vez.")
