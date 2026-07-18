@@ -105,7 +105,7 @@ class EquipItemView(discord.ui.View):
         # vacía sola (no se puede sostener nada más).
         if self.slot == "arma_principal":
             arma = EQUIPAMENTO.get(elegido) if elegido else None
-            if not arma or arma.get("manos") == 2:
+            if arma and arma.get("manos") == 2:
                 self.parent.current_equipo["arma_secundaria"] = None
 
         await interaction.response.edit_message(embed=self.parent.build_embed(), view=self.parent)
