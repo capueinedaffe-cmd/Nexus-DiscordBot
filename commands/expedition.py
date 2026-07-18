@@ -609,7 +609,12 @@ def setup_expedition_commands(bot):
            # Evento de pista (solo si el líder aún no completó esta zona)
         pistas_actuales = expedition["pistas"]
         pistas_necesarias = zona["pistas_necesarias"]
-        lider = await get_character_by_id(expedition["lider_owner_id"])  # o como sea que identifiques al líder
+        lider = next((c for c in personajes if c.owner_id == expedition["lider_owner_id"]), None)
+        if not lider:
+            lider_nombre = "El líder"
+        else:
+            lider_nombre = lider.name
+
         
         if pistas_actuales < pistas_necesarias and hay_pista(zona["pista"], exploraciones_nuevas):
             pistas_nuevas = await sumar_pista(expedition["id"])
@@ -638,7 +643,7 @@ def setup_expedition_commands(bot):
                 else:
                     msg = (
                         f"🎉 **¡{zona['nombre']} completada!**\n\n"
-                        f"**{lider.name}** ha desentrañado todos los secretos de esta zona.\n\n"
+                        f"**{lider_nombre}** ha desentrañado todos los secretos de esta zona.\n\n"
                         f"🔮 El camino conocido termina aquí... por ahora."
                     )
                 
