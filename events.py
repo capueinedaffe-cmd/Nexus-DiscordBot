@@ -32,8 +32,7 @@ async def iniciar_combate_arpias(expedition, personajes_convocados: list, channe
         resto_oleadas.append(["matriarca_arpia_furiosa"])
 
     jugadores_fighters = [Fighter(char, team=0) for char in personajes_convocados]
-    arpias_iniciales = [Fighter(construir_personaje_enemigo("arpia_menor"), team=1)
-                         for _ in range(ARPIAS_POR_OLEADA)]
+    arpias_iniciales = [Fighter(construir_personaje_enemigo(eid), team=1) for eid in primera_oleada_ids]
 
     session = CombatSession(
         channel_id,
