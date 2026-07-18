@@ -49,6 +49,12 @@ class ForgeConfirmView(discord.ui.View):
             content=f"✅ Forjaste **{eq['nombre']}**. Ya está en tu inventario de equipamento.", view=None
         )
 
+        if self.forge_view.origin_message:
+            try:
+                await self.forge_view.origin_message.edit(embed=self.forge_view.build_embed(), view=self.forge_view)
+            except discord.NotFound:
+                pass
+
     @discord.ui.button(label="Cancelar", style=discord.ButtonStyle.danger)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(content="Forjado cancelado.", view=None)
@@ -63,7 +69,8 @@ class ForgeView(discord.ui.View):
         self.ids = list(EQUIPAMENTO.keys())
         self.page = 0
         self.selected_index = 0
-
+        self.origin_message = None  # se setea en /forjar, después de mandar el panel
+        
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.owner_id:
             await interaction.response.send_message("Este panel no es tuyo.", ephemeral=True)
@@ -189,3 +196,4 @@ def setup_forge_commands(bot):
 
         view = ForgeView(interaction.user.id, char, inventario)
         await interaction.response.send_message(embed=view.build_embed(), view=view, ephemeral=not publico)
+        view.origin_message = await interaction.original_response()
