@@ -650,6 +650,7 @@ def setup_expedition_commands(bot):
                 await interaction.followup.send(embed=embed_completado)
 
         # Probabilidad de recurso vs enemigo definida por zona (default 0.5)
+        # Probabilidad de recurso vs enemigo definida por zona (default 0.5)
         prob_recurso = zona.get("prob_recurso", 0.5)
         prob_enemigo = zona.get("prob_enemigo", 0.3)
         prob_nada = max(0.0, 1.0 - prob_recurso - prob_enemigo)
@@ -659,42 +660,53 @@ def setup_expedition_commands(bot):
             resultado = sortear_recurso(zona)
             if not resultado:
                 await interaction.followup.send("El grupo explora, pero no encuentra nada esta vez.")
+                await _actualizar_panel_expedicion(expedition, interaction.channel)
                 return
             material_id, cantidad = resultado
             await agregar_loot(expedition["id"], material_id, cantidad)
             await interaction.followup.send(
                 f"🌿 El grupo encuentra **{cantidad}x {material_id}**. Se guarda en el botín de la expedición."
             )
+            await _actualizar_panel_expedicion(expedition, interaction.channel)
             return
 
         elif tirada < prob_recurso + prob_enemigo:
             enemy_id = sortear_enemigo(zona)
             if not enemy_id:
                 await interaction.followup.send("El grupo explora, pero no encuentra nada esta vez.")
+                await _actualizar_panel_expedicion(expedition, interaction.channel)
                 return
 
-        enemy_data = get_enemy(enemy_id)
+            enemy_data = get_enemy(enemy_id)
 
-        if enemy_data.get("huye"):
-            await interaction.followup.send(
-                f"🏃 Un **{enemy_data['nombre']}** aparece, pero huye antes de que puedan reaccionar."
+            if enemy_data.get("huye"):
+                await interaction.followup.send(
+                    f"🏃 Un **{enemy_data['nombre']}** aparece, pero huye antes de que puedan reaccionar."
+                )
+                await _actualizar_panel_expedicion(expedition, interaction.channel)
+                return
+
+            if enemy_data.get("neutral"):
+                view = NeutralEncounterView(expedition, enemy_id, personajes, interaction.channel_id)
+                await interaction.followup.send(
+                    f"👁️ El grupo se topa con **{enemy_data['nombre']}**. Parece tranquilo... ¿qué hacen?",
+                    view=view,
+                )
+                await _actualizar_panel_expedicion(expedition, interaction.channel)
+                return
+
+            # Hostil: combate inmediato, sin elección.
+            cantidad_hostiles = cantidad_enemigos_hostiles()
+            await _iniciar_combate_expedicion(
+                interaction, expedition, [enemy_id] * cantidad_hostiles, personajes
             )
+            await _actualizar_panel_expedicion(expedition, interaction.channel)
             return
 
-        if enemy_data.get("neutral"):
-            view = NeutralEncounterView(expedition, enemy_id, personajes, interaction.channel_id)
-            await interaction.followup.send(
-                f"👁️ El grupo se topa con **{enemy_data['nombre']}**. Parece tranquilo... ¿qué hacen?",
-                view=view,
-            )
+        else:
+            await interaction.followup.send("El grupo explora, pero no encuentra nada esta vez.")
+            await _actualizar_panel_expedicion(expedition, interaction.channel)
             return
-
-        # Hostil: combate inmediato, sin elección.
-        cantidad_hostiles = cantidad_enemigos_hostiles()
-        await _iniciar_combate_expedicion(
-            interaction, expedition, [enemy_id] * cantidad_hostiles, personajes
-        )
-        await _actualizar_panel_expedicion(expedition, interaction.channel)
 
     # ── /comer ───────────────────────────────────────────────────
     @bot.tree.command(name="comer", description="Comé un ingrediente crudo del botín de la expedición (+1 energía)")
