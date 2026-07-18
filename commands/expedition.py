@@ -55,6 +55,8 @@ from database import get_db_connection
 from config import OWNER_ID, AYVIAR_ROLE_ID
 from session_guard import usuario_ocupado
 
+EXPEDITION_PANELS = {}  # {expedition_id: discord.Message}
+
 MAX_PARTICIPANTES_EXPEDICION = 4
 MAX_SESIONES_POR_CANAL = 3
 LOBBY_EXPEDICION_TIMEOUT_SECONDS = 5 * 60  # 5 minutos, igual que el de combate
@@ -121,6 +123,51 @@ class ExpeditionLobby:
             color=discord.Color.blurple(),
         )
         return embed
+
+async def _build_expedition_panel_embed(expedition, personajes, loot_rows):
+    zona = get_zona(expedition["zona_id"])
+    
+    participantes_lines = []
+    for char in personajes:
+        barrita = "🟩" * min(char.energia, 10) + "⬛" * max(0, 10 - char.energia)
+        participantes_lines.append(f"• {char.name}: {barrita} ({char.energia}/{ENERGIA_MAXIMA})")
+    
+    loot_lines = [f"• {row['material_id']}: {row['cantidad']}" for row in loot_rows] if loot_rows else ["Nada todavía"]
+    
+    embed = discord.Embed(
+        title=f"🗺️ Panel de Expedición: {zona['nombre']}",
+        description=(
+            f"**Estado:** {'🟢 Activa' if expedition['estado'] == 'activa' else '🔴 Finalizada'}\n"
+            f"**Exploraciones:** {expedition['exploraciones']}  |  "
+            f"**Pistas:** {expedition['pistas']}/{zona.get('pistas_necesarias', '?')}\n\n"
+            f"**Participantes:**\n" + "\n".join(participantes_lines) + "\n\n"
+            f"**Botín acumulado:**\n" + "\n".join(loot_lines)
+        ),
+        color=discord.Color.green() if expedition['estado'] == 'activa' else discord.Color.red(),
+    )
+    if zona.get("gif_id"):
+        embed.set_thumbnail(url=get_gif_zona(expedition["zona_id"]))
+    return embed
+
+
+async def _actualizar_panel_expedicion(expedition, thread):
+    participant_ids = await get_participant_ids(expedition["id"])
+    personajes = [await get_character_by_id(cid) for cid in participant_ids]
+    loot_rows = await get_loot(expedition["id"])
+    
+    embed = await _build_expedition_panel_embed(expedition, personajes, loot_rows)
+    
+    msg = EXPEDITION_PANELS.get(expedition["id"])
+    if msg:
+        try:
+            await msg.edit(embed=embed)
+            return
+        except (discord.NotFound, discord.HTTPException):
+            pass
+    
+    # Si no hay mensaje guardado o fue borrado, crear uno nuevo
+    msg = await thread.send(embed=embed)
+    EXPEDITION_PANELS[expedition["id"]] = msg
 
 
 async def personaje_propio_autocomplete(interaction: discord.Interaction, current: str):
@@ -437,22 +484,15 @@ def setup_expedition_commands(bot):
                 await interaction.response.send_message("¡Todos listos! La expedición comienza.")
         
         # Enviar embed al hilo de la zona
+                # Enviar panel al hilo
         hilo = _bot_ref.get_channel(thread_id) if _bot_ref else None
         if hilo:
-            await hilo.send(
-                f"🗺️ La expedición a **{lobby.zona_nombre}** ha comenzado. "
-                f"Participantes: {', '.join(c.name for c in lobby.participants)}",
-                embed=embed
-            )
-            # Mensaje informativo en el canal general con link al hilo
+            await _actualizar_panel_expedicion(expedition, hilo)
             await interaction.channel.send(
-                f"🗺️ La expedición a **{lobby.zona_nombre}** ha comenzado en {hilo.mention}. "
-                f"Usá los comandos de expedición ahí dentro."
+                f"🗺️ La expedición a **{lobby.zona_nombre}** comenzó en {hilo.mention}."
             )
         else:
-            # Fallback: si no encuentra el hilo, usa el canal general
             await interaction.channel.send(embed=embed)
-
 
     # ── /enviar_ayviar ───────────────────────────────────────────
     @bot.tree.command(name="enviar_ayviar", description="[Solo el líder] Pide ayuda urgente, una sola vez por expedición")
@@ -622,6 +662,7 @@ def setup_expedition_commands(bot):
         await _iniciar_combate_expedicion(
             interaction, expedition, [enemy_id] * cantidad_hostiles, personajes
         )
+        await _actualizar_panel_expedicion(expedition, interaction.channel)
 
     # ── /comer ───────────────────────────────────────────────────
     @bot.tree.command(name="comer", description="Comé un ingrediente crudo del botín de la expedición (+1 energía)")
@@ -667,6 +708,7 @@ def setup_expedition_commands(bot):
         await interaction.response.send_message(
             f"🍎 **{char.name}** come **{material_datos['nombre']}** crudo. (+{RECUPERACION_CRUDO} energía)"
         )
+        await _actualizar_panel_expedicion(expedition, interaction.channel)
 
    # ── /acampar ─────────────────────────────────────────────────
     @bot.tree.command(name="acampar", description="El grupo acampa: un personaje intenta cocinar (no gasta energía)")
@@ -744,6 +786,7 @@ def setup_expedition_commands(bot):
             f"🍲 **{char.name}** cocina **{receta_datos['nombre']}** con éxito. "
             f"Todo el grupo recupera {receta_datos['energia_base']} de energía."
         )
+        await _actualizar_panel_expedicion(expedition, interaction.channel)
 
     # ── /compartir_conocimiento ──────────────────────────────────
     @bot.tree.command(name="compartir_conocimiento", description="Hace públicas las pistas de esta zona para futuros grupos")
@@ -789,6 +832,7 @@ def setup_expedition_commands(bot):
         await interaction.response.send_message(
             "🏕️ **El grupo se retira de la expedición.** Todo lo recolectado se reparte entre los participantes."
         )
+        await _actualizar_panel_expedicion(expedition, interaction.channel)
 
 def start_expedition_background_tasks():
     """Llamar desde on_ready, igual que start_background_tasks() de combat.py."""
