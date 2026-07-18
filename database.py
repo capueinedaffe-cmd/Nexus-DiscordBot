@@ -113,8 +113,6 @@ async def init_db():
                 finished_at TEXT
             )
         ''')
-            )
-        ''')
         
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS expedition_participants (
