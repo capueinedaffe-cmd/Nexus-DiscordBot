@@ -483,7 +483,7 @@ def setup_expedition_commands(bot):
 
     # ── /explorar ────────────────────────────────────────────────
     @bot.tree.command(name="explorar", description="El grupo explora la zona (gasta 1 energía a todos)")
-    async def explorar(interaction: discord.Interaction, personaje: str = None):
+    async def explorar(interaction: discord.Interaction):
         expedition = await get_active_expedition_for_owner(interaction.channel_id, interaction.user.id)
         if not expedition:
             await interaction.response.send_message(
