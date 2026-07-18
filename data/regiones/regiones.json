@@ -1,0 +1,9 @@
+{
+  "_nota": "Cada región es un canal fijo de Discord. Las zonas de zonas.json referencian su region_id. /iniciar_expedicion solo funciona dentro del channel_id de una región, y solo ofrece las zonas de esa región.",
+  "regiones": {
+    "region_1": {
+      "nombre": "Región 1",
+      "channel_id": 1528062343953645798
+    }
+  }
+}
