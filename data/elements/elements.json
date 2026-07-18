@@ -16,7 +16,7 @@
   ],
   "restringidos": [
     "orden",
-    "caos",
+    "caos"
   ],
   "nombres": {
     "radiacion": "Radiación (fuego)",
