@@ -84,7 +84,7 @@ async def init_db():
             )
         ''')
 
-                await conn.execute('''
+        await conn.execute('''
             CREATE TABLE IF NOT EXISTS character_equipment (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
