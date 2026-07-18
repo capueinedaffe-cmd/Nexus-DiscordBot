@@ -22,6 +22,22 @@ with open("data/enemies/enemies1.json", encoding="utf-8") as f:
     _ENEMIGOS_DATA = json.load(f)
 ENEMIGOS = _ENEMIGOS_DATA["enemigos"]
 
+with open("data/regiones/regiones.json", encoding="utf-8") as f:
+    _REGIONES_DATA = json.load(f)
+REGIONES = _REGIONES_DATA["regiones"]
+
+
+def get_region_por_canal(channel_id: int):
+    """Devuelve (region_id, region_data) si ese canal es una región, o (None, None) si no."""
+    for region_id, region_data in REGIONES.items():
+        if region_data["channel_id"] == channel_id:
+            return region_id, region_data
+    return None, None
+
+
+def get_zonas_de_region(region_id: str) -> dict:
+    """{zona_id: zona_data} de todas las zonas que pertenecen a esa región."""
+    return {zid: zdata for zid, zdata in ZONAS.items() if zdata.get("region_id") == region_id}
 
 def get_zona(zona_id):
     return ZONAS.get(zona_id)
