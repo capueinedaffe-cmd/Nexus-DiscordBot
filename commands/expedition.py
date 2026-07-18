@@ -765,7 +765,11 @@ async def check_expedition_lobby_timeouts():
         for lobby in list(LOBBIES_EXPEDICION.get(channel_id, [])):
             if lobby.is_expired():
                 _quitar_lobby(channel_id, lobby)
-                if _bot_ref:
-                    channel = _bot_ref.get_channel(channel_id)
-                    if channel:
-                        await channel.send(f"⌛ Se canceló un lobby de expedición ({lobby.zona_nombre}) por inactividad.")
+                if lobby.status_message:
+                    try:
+                        await lobby.status_message.edit(
+                            content=f"⌛ Lobby de expedición ({lobby.zona_nombre}) cancelado por inactividad.",
+                            embed=None,
+                        )
+                    except discord.NotFound:
+                        pass
