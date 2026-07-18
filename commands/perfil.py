@@ -50,7 +50,8 @@ def _build_character_embed(char):
 
     slots_orden = ["arma_principal", "arma_secundaria", "cabeza", "torso", "piernas", "accesorio"]
     slot_labels = {
-        "arma": "Arma", "cabeza": "Cabeza", "torso": "Torso",
+        "arma_principal": "Arma principal", "arma_secundaria": "Arma secundaria",
+        "cabeza": "Cabeza", "torso": "Torso",
         "piernas": "Piernas", "accesorio": "Accesorio",
     }
     equipo_lines = []
