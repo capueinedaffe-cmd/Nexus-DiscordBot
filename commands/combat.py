@@ -435,6 +435,7 @@ class CombatSession:
         self.oleada_actual = 1
         self.oleadas_totales = 1 + len(self.oleadas_restantes)
         self.enemigos_derrotados_total = 0  # cuenta acumulada, útil para la Etapa 5.3.3 (40 arpías)
+        self._muertos_ya_contados = set()   # ids de Fighter ya sumados, para no recontarlos en cada oleada
 
         self._roll_initiative()
 
@@ -491,10 +492,16 @@ class CombatSession:
         if not self.oleadas_restantes:
             return None  # no quedan más oleadas: el combate termina de verdad
 
-        # Antes de reponer, contamos cuántos cayeron en esta oleada que recién terminó
-        self.enemigos_derrotados_total += sum(
-            1 for f in self.fighters if f.team == self.equipo_oleadas and not f.alive
-        )
+        # Antes de reponer, contamos SOLO los caídos que todavía no habíamos
+        # contado (los fighters muertos nunca se borran de self.fighters, así
+        # que sin este filtro se recontarían en cada oleada siguiente).
+        nuevos_derrotados = [
+            f for f in self.fighters
+            if f.team == self.equipo_oleadas and not f.alive and id(f) not in self._muertos_ya_contados
+        ]
+        for f in nuevos_derrotados:
+            self._muertos_ya_contados.add(id(f))
+        self.enemigos_derrotados_total += len(nuevos_derrotados)
 
         siguiente_ids = self.oleadas_restantes.pop(0)
         nuevos = [Fighter(construir_personaje_enemigo(eid), self.equipo_oleadas) for eid in siguiente_ids]
