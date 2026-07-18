@@ -171,7 +171,16 @@ class StatPanelView(discord.ui.View):
             "ph": 0,
             "elemento": self.elemento,
         })
-        await add_character(character)
+        try:
+            await add_character(character)
+        except Exception as e:
+            if "UNIQUE" in str(e):
+                await interaction.response.send_message(
+                    f"Ya tenés un personaje llamado **{self.name}**. Elegí otro nombre y volvé a intentar.",
+                    ephemeral=True,
+                )
+                return
+            raise
 
         for child in self.children:
             child.disabled = True
@@ -275,9 +284,18 @@ def setup_character_commands(bot):
             # El elemento de la transformación es siempre el elemento innato del personaje.
             ph_drain = max(1, round(total / 3))
 
-            await add_transformation(
-                char.id, nombre, char.elemento, bonuses, ph_drain, condicion
-            )
+            try:
+                await add_transformation(
+                    char.id, nombre, char.elemento, bonuses, ph_drain, condicion
+                )
+            except Exception as e:
+                if "UNIQUE" in str(e):
+                    await interaction.response.send_message(
+                        f"**{char.name}** ya tiene una transformación llamada **{nombre}**. Elegí otro nombre.",
+                        ephemeral=True,
+                    )
+                    return
+                raise
 
             await interaction.response.send_message(
                 f"✅ Transformación **{nombre}** creada para **{char.name}** "
