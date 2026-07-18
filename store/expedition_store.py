@@ -265,9 +265,23 @@ async def finalizar_expedition(expedition_id: int, exito: bool) -> None:
 
 
 # ── Loot temporal de la expedición ──────────────────────────────────
+MAX_AGUA_EXPEDICION = 2
+
+
 async def agregar_loot(expedition_id: int, material_id: str, cantidad: int) -> None:
     conn = await get_db_connection()
     try:
+        if material_id == "agua":
+            cursor = await conn.execute(
+                "SELECT cantidad FROM expedition_loot WHERE expedition_id = ? AND material_id = 'agua'",
+                (expedition_id,)
+            )
+            row = await cursor.fetchone()
+            actual = row["cantidad"] if row else 0
+            cantidad = max(0, min(cantidad, MAX_AGUA_EXPEDICION - actual))
+            if cantidad == 0:
+                return
+
         await conn.execute('''
             INSERT INTO expedition_loot (expedition_id, material_id, cantidad)
             VALUES (?, ?, ?)
@@ -403,5 +417,33 @@ async def esta_en_expedicion_activa(owner_id: int) -> bool:
         ''', (owner_id,))
         row = await cursor.fetchone()
         return row is not None
+    finally:
+        await conn.close()
+
+async def quitar_loot(expedition_id: int, material_id: str, cantidad: int) -> bool:
+    """Devuelve False si no había suficiente cantidad en el botín (no descuenta nada en ese caso)."""
+    conn = await get_db_connection()
+    try:
+        cursor = await conn.execute(
+            "SELECT cantidad FROM expedition_loot WHERE expedition_id = ? AND material_id = ?",
+            (expedition_id, material_id)
+        )
+        row = await cursor.fetchone()
+        actual = row["cantidad"] if row else 0
+        if actual < cantidad:
+            return False
+        nueva = actual - cantidad
+        if nueva == 0:
+            await conn.execute(
+                "DELETE FROM expedition_loot WHERE expedition_id = ? AND material_id = ?",
+                (expedition_id, material_id)
+            )
+        else:
+            await conn.execute(
+                "UPDATE expedition_loot SET cantidad = ? WHERE expedition_id = ? AND material_id = ?",
+                (nueva, expedition_id, material_id)
+            )
+        await conn.commit()
+        return True
     finally:
         await conn.close()
