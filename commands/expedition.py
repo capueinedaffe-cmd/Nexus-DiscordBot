@@ -199,18 +199,15 @@ async def _publish_lobby(interaction, lobby):
     lobby.status_message = await interaction.channel.send(embed=lobby.build_embed())
 
 async def _iniciar_combate_expedicion(interaction, expedition, enemy_ids, personajes):
-    """
-    Crea un CombatSession real (el mismo sistema de combate.py) con los
-    participantes de la expedición como equipo 0 y los enemy_ids dados
-    como equipo 1. Queda registrado en ACTIVE_COMBATS del canal, y se le
-    marca expedition_id para poder engancharlo con el loot más adelante.
-    """
     from commands.combat import (
         Fighter, CombatSession, ACTIVE_COMBATS, MAX_SESIONES_POR_CANAL,
         _agregar_combate, _resolver_turnos_npc,
     )
 
-    combates_actuales = ACTIVE_COMBATS.get(interaction.channel_id, [])
+    # Usar el thread_id de la expedición, no el canal donde se ejecutó /explorar
+    thread_id = expedition.get("thread_id", interaction.channel_id)
+
+    combates_actuales = ACTIVE_COMBATS.get(thread_id, [])
     if len(combates_actuales) >= MAX_SESIONES_POR_CANAL:
         await interaction.followup.send(
             "⚠️ Hay demasiados combates activos en este canal ahora mismo — "
@@ -221,9 +218,9 @@ async def _iniciar_combate_expedicion(interaction, expedition, enemy_ids, person
     jugadores_fighters = [Fighter(char, team=0) for char in personajes]
     enemigos_fighters = [Fighter(construir_personaje_enemigo(eid), team=1) for eid in enemy_ids]
 
-    session = CombatSession(interaction.channel_id, jugadores_fighters + enemigos_fighters)
-    session.expedition_id = expedition["id"]  # usado en la Etapa 5.5 para repartir el loot al ganar
-    _agregar_combate(interaction.channel_id, session)
+    session = CombatSession(thread_id, jugadores_fighters + enemigos_fighters)
+    session.expedition_id = expedition["id"]
+    _agregar_combate(thread_id, session)
 
     texto_npc_inicial, combate_termino_de_una = await _resolver_turnos_npc(session)
 
@@ -235,9 +232,10 @@ async def _iniciar_combate_expedicion(interaction, expedition, enemy_ids, person
         embed.description = texto_npc_inicial + "\n\n" + embed.description
 
     await interaction.followup.send("¡El combate comienza!")
-    session.status_message = await interaction.channel.send(embed=embed)
-    # combate_termino_de_una (caso límite de iniciativa) se deja para la Etapa 5.5,
-    # donde se conecta el cierre de combate con finalizar_expedition/loot.
+    
+    # Enviar el embed al hilo de la expedición
+    canal = _bot_ref.get_channel(thread_id) if _bot_ref else interaction.channel
+    session.status_message = await canal.send(embed=embed)
 
 class NeutralEncounterView(discord.ui.View):
     """Botones para decidir atacar u observar a una criatura neutral encontrada al explorar."""
