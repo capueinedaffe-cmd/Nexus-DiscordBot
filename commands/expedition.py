@@ -606,24 +606,51 @@ def setup_expedition_commands(bot):
         zona = get_zona(expedition["zona_id"])
         exploraciones_nuevas = await incrementar_exploraciones(expedition["id"])
 
-        # Evento de pista: se anuncia solo, con unos segundos de suspenso,
-        # ANTES de mostrar el resultado normal de la exploración.
-        if hay_pista(zona["pista"], exploraciones_nuevas):
+           # Evento de pista (solo si el líder aún no completó esta zona)
+        pistas_actuales = expedition["pistas"]
+        pistas_necesarias = zona["pistas_necesarias"]
+        lider = await get_character_by_id(expedition["lider_owner_id"])  # o como sea que identifiques al líder
+        
+        if pistas_actuales < pistas_necesarias and hay_pista(zona["pista"], exploraciones_nuevas):
             pistas_nuevas = await sumar_pista(expedition["id"])
             embed_pista = discord.Embed(
                 title="🔍 ¡Pista encontrada!",
                 description=(
-                    f"El grupo encuentra una pista en **{zona['nombre']}**. "
-                    f"Pistas: {pistas_nuevas}/{zona['pistas_necesarias']}."
+                    f"**{lider.name}** descubre una pista en **{zona['nombre']}**. "
+                    f"Pistas: {pistas_nuevas}/{pistas_necesarias}."
                 ),
                 color=discord.Color.gold(),
             )
             await interaction.followup.send(embed=embed_pista)
             await asyncio.sleep(3)
 
-        # Resultado normal de la exploración: 50/50 recurso vs enemigo.
-        #Probabilidad de recurso vs enemigo definida por zona (default 0.5)
-                prob_recurso = zona.get("prob_recurso", 0.5)
+            # ¿El líder completó la zona?
+            if pistas_nuevas >= pistas_necesarias:
+                siguiente_id = zona.get("siguiente_zona")
+                if siguiente_id:
+                    siguiente_zona = get_zona(siguiente_id)
+                    msg = (
+                        f"🎉 **¡{zona['nombre']} completada!**\n\n"
+                        f"**{lider.name}** ha desentrañado todos los secretos de esta zona. "
+                        f"El grupo puede avanzar cuando estén listos.\n\n"
+                        f"➡️ Siguiente destino: **{siguiente_zona['nombre']}**"
+                    )
+                else:
+                    msg = (
+                        f"🎉 **¡{zona['nombre']} completada!**\n\n"
+                        f"**{lider.name}** ha desentrañado todos los secretos de esta zona.\n\n"
+                        f"🔮 El camino conocido termina aquí... por ahora."
+                    )
+                
+                embed_completado = discord.Embed(
+                    title=f"🏆 Zona completada",
+                    description=msg,
+                    color=discord.Color.gold(),
+                )
+                await interaction.followup.send(embed=embed_completado)
+
+        # Probabilidad de recurso vs enemigo definida por zona (default 0.5)
+        prob_recurso = zona.get("prob_recurso", 0.5)
         prob_enemigo = zona.get("prob_enemigo", 0.3)
         prob_nada = max(0.0, 1.0 - prob_recurso - prob_enemigo)
 
