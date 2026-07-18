@@ -157,7 +157,7 @@ async def _actualizar_panel_expedicion(expedition, thread):
     
     embed = await _build_expedition_panel_embed(expedition, personajes, loot_rows)
     
-        msg = EXPEDITION_PANELS.get(expedition["id"])
+    msg = EXPEDITION_PANELS.get(expedition["id"])
     if msg:
         try:
             await msg.delete()
@@ -166,7 +166,6 @@ async def _actualizar_panel_expedicion(expedition, thread):
     
     msg = await thread.send(embed=embed)
     EXPEDITION_PANELS[expedition["id"]] = msg
-
 
 
 async def personaje_propio_autocomplete(interaction: discord.Interaction, current: str):
