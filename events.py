@@ -117,13 +117,11 @@ async def procesar_fin_combate_expedicion(session, winning_team: int):
         # Conteo de arpías para el jefe oculto
         if enemy_id == "arpia_menor":
             arpias_derrotadas_este_combate += 1
-
-        # Matriarca derrotada
+            
+        # Matriarca derrotada (el loot ya se tiró arriba, en el loop general;
+        # acá solo falta marcar que se completó el jefe oculto)
         if enemy_id == "matriarca_arpia_furiosa":
             await marcar_jefe_oculto_completado(expedition_id)
-            for material_id, prob in enemy_data.get("loot", {}).items():
-                if random.random() < prob:
-                    await agregar_loot(expedition_id, material_id, 1)
 
     for _ in range(arpias_derrotadas_este_combate):
         await registrar_arpia_derrotada(expedition_id)
