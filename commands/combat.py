@@ -645,14 +645,37 @@ async def personaje_autocomplete(interaction: discord.Interaction, current: str)
 
 
 async def objetivo_autocomplete(interaction: discord.Interaction, current: str):
-    session = _combate_de_owner(interaction.channel_id, interaction.user.id)
-    if not session:
+    try:
+        # Debug: loguear qué está pasando
+        print(f"[DEBUG objetivo_autocomplete] user={interaction.user.id} channel={interaction.channel_id} current='{current}'")
+        
+        session = _combate_de_owner(interaction.channel_id, interaction.user.id)
+        print(f"[DEBUG] session found: {session is not None}")
+        
+        if not session:
+            return []
+        
+        print(f"[DEBUG] fighters: {len(session.fighters)} alive: {sum(1 for f in session.fighters if f.alive)}")
+        
+        current_lower = (current or "").lower()
+        opts = [f for f in session.fighters if f.alive]
+        choices = []
+        for f in opts:
+            print(f"[DEBUG] checking fighter: {f.name} (team {f.team}) alive={f.alive}")
+            if current_lower in f.name.lower():
+                choices.append(app_commands.Choice(
+                    name=f"{f.name} (Equipo {f.team + 1})",
+                    value=f.name
+                ))
+        
+        print(f"[DEBUG] returning {len(choices)} choices")
+        return choices[:25]
+        
+    except Exception as e:
+        print(f"[ERROR objetivo_autocomplete] {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
         return []
-    opts = [f for f in session.fighters if f.alive]
-    return [
-        app_commands.Choice(name=f"{f.name} (Equipo {f.team + 1})", value=f.name)
-        for f in opts if current.lower() in f.name.lower()
-    ][:25]
 
 
 async def transformacion_autocomplete(interaction: discord.Interaction, current: str):
@@ -1535,26 +1558,44 @@ async def _persist_combat_stats(session, resultados_equipo):
         )
 
 async def _end_combat_victory(interaction, session, result_line):
-    winning_team = session.winning_team()
-    ganadores = [f.name for f in session.fighters if f.team == winning_team]
-    embed = session.status_embed(title="🏆 Combate finalizado")
-    embed.description = (
-        result_line + f"\n\n**Equipo {winning_team + 1} gana!** ({', '.join(ganadores)})\n\n"
-        + embed.description
-    )
-    await interaction.response.send_message("Combate finalizado.", ephemeral=True)
-    await _publish(interaction, session, embed)
-    await _persist_combat_stats(session, {winning_team: "victoria", 1 - winning_team: "derrota"})
-
-    if getattr(session, "expedition_id", None):
-        from events import procesar_fin_combate_expedicion
-        fracaso = await procesar_fin_combate_expedicion(session, winning_team)
-        if fracaso:
-            await interaction.channel.send(
-                "💀 **La expedición fracasa.** El grupo perdió todo lo recolectado (excepto la experiencia)."
+    try:
+        winning_team = session.winning_team()
+        if winning_team is None:
+            # Empate técnico o aniquilación mutua
+            ganadores = []
+            embed = session.status_embed(title="⚔️ Combate finalizado — Empate")
+            embed.description = result_line + "\n\n**Nadie sobrevive.**"
+        else:
+            ganadores = [f.name for f in session.fighters if f.team == winning_team]
+            embed = session.status_embed(title="🏆 Combate finalizado")
+            embed.description = (
+                result_line + f"\n\n**Equipo {winning_team + 1} gana!** ({', '.join(ganadores)})\n\n"
+                + embed.description
             )
 
-    _quitar_combate(interaction.channel_id, session)
+        # Responder la interacción de forma segura
+        if interaction.response.is_done():
+            await interaction.followup.send("Combate finalizado.", ephemeral=True)
+        else:
+            await interaction.response.send_message("Combate finalizado.", ephemeral=True)
+
+        await _publish(interaction, session, embed)
+        await _persist_combat_stats(session, {winning_team: "victoria", 1 - winning_team: "derrota"})
+
+        if getattr(session, "expedition_id", None):
+            from events import procesar_fin_combate_expedicion
+            fracaso = await procesar_fin_combate_expedicion(session, winning_team)
+            if fracaso:
+                await interaction.channel.send(
+                    "💀 **La expedición fracasa.** El grupo perdió todo lo recolectado (excepto la experiencia)."
+                )
+
+        _quitar_combate(interaction.channel_id, session)
+
+    except Exception as e:
+        # Si algo falla en el cierre, al menos quitamos el combate y logueamos
+        _quitar_combate(interaction.channel_id, session)
+        raise  # Re-lanzar para que Discord sepa que hubo error
 
 def start_background_tasks():
     """
