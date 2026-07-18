@@ -1,4 +1,4 @@
-hi"""
+"""
 main.py
 -------
 Punto de entrada del bot de Discord NEXUS.
@@ -130,12 +130,6 @@ try:
     logger.info("✅ Comando de equipar registrado")
 except Exception as e:
     logger.error(f"❌ Error registrando equipar: {e}", exc_info=True)
-
-try:
-    setup_test_event_commands(bot)
-    logger.info("✅ Comando de prueba de eventos registrado")
-except Exception as e:
-    logger.error(f"❌ Error registrando eventos de prueba: {e}", exc_info=True)
 
 try:
     setup_expedition_commands(bot)
