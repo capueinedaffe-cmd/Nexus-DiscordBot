@@ -48,7 +48,7 @@ def _build_character_embed(char):
     usos = char.maestria_usos.get(char.elemento, 0)
     usos_para_siguiente = 10 - (usos % 10) if nivel_maestria < 10 else 0
 
-    slots_orden = ["arma", "cabeza", "torso", "piernas", "accesorio"]
+    slots_orden = ["arma_principal", "arma_secundaria", "cabeza", "torso", "piernas", "accesorio"]
     slot_labels = {
         "arma": "Arma", "cabeza": "Cabeza", "torso": "Torso",
         "piernas": "Piernas", "accesorio": "Accesorio",
