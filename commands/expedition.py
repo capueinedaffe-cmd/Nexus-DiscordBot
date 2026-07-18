@@ -481,7 +481,7 @@ def setup_expedition_commands(bot):
         if gif_url:
             embed.set_image(url=gif_url)
 
-                await interaction.response.send_message("¡Todos listos! La expedición comienza.")
+            await interaction.response.send_message("¡Todos listos! La expedición comienza.")
         
         # Enviar embed al hilo de la zona
                 # Enviar panel al hilo
