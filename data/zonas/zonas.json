@@ -5,6 +5,7 @@
       "nombre": "Praderas",
       "gif_id": "praderas_gif",
       "region_id": "region_1",
+      "thread_id": 1528153863188644091,
       "orden": 1,
       "es_tutorial": true,
       "prob_recurso": 0.7,
@@ -28,6 +29,7 @@
       "nombre": "Bosque",
       "gif_id": "bosque_gif",
       "region_id": "region_1",
+      "thread_id": 1528153816229220503,
       "orden": 2,
       "prob_recurso": 0.6,
       "recursos": [
@@ -59,6 +61,7 @@
       "nombre": "Valle",
       "gif_id": "valle_gif",
       "region_id": "region_1",
+      "thread_id": 1528153781353713734,
       "orden": 3,
       "prob_recurso": 0.5,
       "recursos": [
@@ -90,6 +93,7 @@
       "nombre": "Montaña",
       "gif_id": "montana_id",
       "region_id": "region_1",
+      "thread_id": 1528153742703067278,
       "orden": 4,
       "prob_recurso": 0.4,
       "recursos": [
@@ -126,6 +130,7 @@
       "nombre": "Colinas Retumbantes",
       "gif_id": "colinas_retumbantes.gif",
       "region_id": "region_1",
+      "thread_id": 1528062426560593953,
       "orden": 5,
       "prob_recurso": 0.3,
       "recursos": [
