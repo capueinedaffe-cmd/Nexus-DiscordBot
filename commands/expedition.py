@@ -35,6 +35,7 @@ from store.expedition_store import (
     agregar_loot, quitar_loot, get_loot, incrementar_exploraciones, sumar_pista,
     finalizar_expedition, construir_personaje_enemigo,
     get_jummi_contador, set_jummi_contador, hacer_publico,
+    get_region_por_canal, get_zona_por_region,
 )
 from maths.expedition_math import (
     ENERGIA_MAXIMA, COSTE_EXPLORAR, RECUPERACION_CRUDO, TURNOS_VENENO_JUMMI,
@@ -131,10 +132,14 @@ async def personaje_propio_autocomplete(interaction: discord.Interaction, curren
 
 
 async def zona_autocomplete(interaction: discord.Interaction, current: str):
-    from store.expedition_store import ZONAS
+    from store.expedition_store import get_region_por_canal, get_zonas_de_region
+    region_id, _ = get_region_por_canal(interaction.channel_id)
+    if not region_id:
+        return []
+    zonas_region = get_zonas_de_region(region_id)
     return [
         app_commands.Choice(name=datos["nombre"], value=zona_id)
-        for zona_id, datos in ZONAS.items()
+        for zona_id, datos in zonas_region.items()
         if current.lower() in datos["nombre"].lower()
     ][:25]
 
@@ -267,16 +272,27 @@ def setup_expedition_commands(bot):
     @app_commands.describe(zona="Zona a explorar", personaje="Tu personaje que participa")
     @app_commands.autocomplete(zona=zona_autocomplete, personaje=personaje_propio_autocomplete)
     async def iniciar_expedicion(interaction: discord.Interaction, zona: str, personaje: str):
+        region_id, region_data = get_region_por_canal(interaction.channel_id)
+        if not region_id:
+            await interaction.response.send_message(
+                "Las expediciones solo se pueden iniciar en el canal de una región.", ephemeral=True
+            )
+            return
+
         if await usuario_ocupado(interaction.user.id):
             await interaction.response.send_message(
                 "Ya estás en un combate o expedición activa. No podés iniciar otro.", ephemeral=True
             )
             return
 
-        zona_datos = get_zona(zona)
-        if not zona_datos:
-            await interaction.response.send_message("Esa zona no existe.", ephemeral=True)
+        zonas_region = get_zonas_de_region(region_id)
+        if zona not in zonas_region:
+            await interaction.response.send_message(
+                f"Esa zona no pertenece a **{region_data['nombre']}**.", ephemeral=True
+            )
             return
+
+        zona_datos = get_zona(zona)
 
         lobbies_actuales = LOBBIES_EXPEDICION.get(interaction.channel_id, [])
         if len(lobbies_actuales) >= MAX_SESIONES_POR_CANAL:
