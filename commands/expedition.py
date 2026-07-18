@@ -35,7 +35,7 @@ from store.expedition_store import (
     agregar_loot, quitar_loot, get_loot, incrementar_exploraciones, sumar_pista,
     finalizar_expedition, construir_personaje_enemigo,
     get_jummi_contador, set_jummi_contador, hacer_publico,
-    get_region_por_canal, get_zona_por_region,
+    get_region_por_canal, get_zonas_de_region,
 )
 from maths.expedition_math import (
     ENERGIA_MAXIMA, COSTE_EXPLORAR, RECUPERACION_CRUDO, TURNOS_VENENO_JUMMI,
