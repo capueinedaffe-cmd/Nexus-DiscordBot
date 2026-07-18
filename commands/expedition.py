@@ -440,15 +440,18 @@ def setup_expedition_commands(bot):
             return
 
         participant_ids = await get_participant_ids(expedition["id"])
-        conn = await get_db_connection()
-        try:
-            cursor = await conn.execute(
-                f"SELECT energia FROM characters WHERE id IN ({','.join('?' * len(participant_ids))})",
-                tuple(participant_ids),
-            )
-            rows = await cursor.fetchall()
-        finally:
-            await conn.close()
+        if not participant_ids:
+            rows = []
+        else:
+            conn = await get_db_connection()
+            try:
+                cursor = await conn.execute(
+                    f"SELECT energia FROM characters WHERE id IN ({','.join('?' * len(participant_ids))})",
+                    tuple(participant_ids),
+                )
+                rows = await cursor.fetchall()
+            finally:
+                await conn.close()
 
         hay_incapacitado = any(row["energia"] <= 0 for row in rows)
         hay_lugar = len(participant_ids) < MAX_PARTICIPANTES_EXPEDICION
