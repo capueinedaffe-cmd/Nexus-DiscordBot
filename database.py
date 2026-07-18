@@ -72,7 +72,8 @@ async def init_db():
                 UNIQUE(character_id, name)
             )
         ''')
-
+        
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_char_mat ON character_materials(character_id)")
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS character_materials (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -83,6 +84,7 @@ async def init_db():
             )
         ''')
 
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_char_equip ON character_equipment(character_id)")
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS character_equipment (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
