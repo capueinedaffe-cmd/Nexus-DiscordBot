@@ -24,7 +24,6 @@ def gastar_energia(energia_actual, costo):
 def recuperar_energia(energia_actual, cantidad):
     return min(ENERGIA_MAXIMA, energia_actual + cantidad)
 
-
 def esta_incapacitado(energia):
     return energia <= 0
 
@@ -107,3 +106,8 @@ def puede_consumir_esencia(esencias_consumidas_actual):
 def cantidad_enemigos_hostiles():
     """80% de que aparezca 1 solo enemigo hostil, 20% de que aparezcan 2."""
     return 1 if random.random() < 0.80 else 2
+
+def avanzar_jummi(contador_actual):
+    """Baja el contador de veneno del jummi crudo en 1 tras una exploración (mínimo 0).
+    Si el resultado es 0, quien llama debe forzar energia=0 aparte (esta función no toca la BD)."""
+    return max(0, contador_actual - 1)
