@@ -622,9 +622,13 @@ def setup_expedition_commands(bot):
             await asyncio.sleep(3)
 
         # Resultado normal de la exploración: 50/50 recurso vs enemigo.
-                # Probabilidad de recurso vs enemigo definida por zona (default 0.5)
-        prob_recurso = zona.get("prob_recurso", 0.5)
-        if random.random() < prob_recurso:
+        #Probabilidad de recurso vs enemigo definida por zona (default 0.5)
+                prob_recurso = zona.get("prob_recurso", 0.5)
+        prob_enemigo = zona.get("prob_enemigo", 0.3)
+        prob_nada = max(0.0, 1.0 - prob_recurso - prob_enemigo)
+
+        tirada = random.random()
+        if tirada < prob_recurso:
             resultado = sortear_recurso(zona)
             if not resultado:
                 await interaction.followup.send("El grupo explora, pero no encuentra nada esta vez.")
@@ -636,10 +640,11 @@ def setup_expedition_commands(bot):
             )
             return
 
-        enemy_id = sortear_enemigo(zona)
-        if not enemy_id:
-            await interaction.followup.send("El grupo explora, pero no encuentra nada esta vez.")
-            return
+        elif tirada < prob_recurso + prob_enemigo:
+            enemy_id = sortear_enemigo(zona)
+            if not enemy_id:
+                await interaction.followup.send("El grupo explora, pero no encuentra nada esta vez.")
+                return
 
         enemy_data = get_enemy(enemy_id)
 
