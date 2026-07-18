@@ -20,8 +20,7 @@ from store.expedition_store import (
     construir_personaje_enemigo, armar_oleadas_arpias,
 )
 from database import get_db_connection as _gdc
-
-
+import random
 
 async def iniciar_combate_arpias(expedition, personajes_convocados: list, channel_id: int, incluir_matriarca: bool):
     """
