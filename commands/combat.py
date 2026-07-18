@@ -195,7 +195,7 @@ class Fighter:
             f"**{self.name}** (Equipo {self.team + 1}){' — 💀' if not self.alive else ''}\n"
             f"HP:   {self.bar(self.vit, self.vit_max)}  {self.vit}/{self.vit_max}\n"
             f"MANA: {self.bar(self.mana, self.mana_max)}  {self.mana}/{self.mana_max}\n"
-            f"PH:   {self.bar(self.ph, self.ph_max)}  {self.ph}/{self.ph_max}"
+            f"PH:   {self.bar(self.ph, self.ph_max)}  {self.ph}/{self.ph_max}\n"
             f"Distancia: {self.distancia}/5"
         )
 
