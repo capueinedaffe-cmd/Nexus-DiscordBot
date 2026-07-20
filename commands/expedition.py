@@ -388,7 +388,6 @@ def setup_expedition_commands(bot):
     )
     @app_commands.autocomplete(personaje=personaje_propio_autocomplete, zona=lobby_zona_autocomplete)
     async def unirse_expedicion(interaction: discord.Interaction, personaje: str, zona: str = None):
-
         if await usuario_ocupado(interaction.user.id):
             await interaction.response.send_message(
                 "Ya estás en un combate o expedición activa.", ephemeral=True
@@ -402,42 +401,63 @@ def setup_expedition_commands(bot):
             )
             return
 
-        # Caso 1: hay un lobby tuyo o con lugar en este canal
-        lobby = _lobby_de_owner(interaction.channel_id, interaction.user.id)
-        if not lobby:
-            candidatos = LOBBIES_EXPEDICION.get(interaction.channel_id, [])
+        # Buscar lobby en: canal actual, canal padre (si estamos en hilo), o hilos hijos (si estamos en canal)
+        canales_a_buscar = [interaction.channel_id]
+        
+        # Si estamos en un hilo, también buscar en el canal padre
+        if isinstance(interaction.channel, discord.Thread):
+            canales_a_buscar.append(interaction.channel.parent_id)
+        
+        # Si estamos en un canal de texto, buscar también en sus hilos activos
+        elif hasattr(interaction.channel, 'threads'):
+            for thread in interaction.channel.threads:
+                canales_a_buscar.append(thread.id)
+
+        # Eliminar duplicados
+        canales_a_buscar = list(dict.fromkeys(canales_a_buscar))
+
+        lobby = None
+        for ch_id in canales_a_buscar:
+            # Caso A: el usuario ya tiene un lobby propio en este canal
+            l = _lobby_de_owner(ch_id, interaction.user.id)
+            if l:
+                lobby = l
+                break
             
+            # Caso B: buscar un lobby con cupo (si especificó zona, filtrar)
+            candidatos = LOBBIES_EXPEDICION.get(ch_id, [])
             if zona:
-                # El jugador especificó zona: buscar exactamente ese lobby
                 for candidato in candidatos:
                     if candidato.zona_id == zona and len(candidato.participants) < MAX_PARTICIPANTES_EXPEDICION:
                         lobby = candidato
                         break
-                if not lobby:
-                    await interaction.response.send_message(
-                        f"No hay ningún lobby activo para **{zona}** con cupos disponibles.", ephemeral=True
-                    )
-                    return
             else:
-                # Sin zona especificada: primer lobby con cupo (comportamiento anterior)
                 for candidato in candidatos:
                     if len(candidato.participants) < MAX_PARTICIPANTES_EXPEDICION:
                         lobby = candidato
                         break
+            
+            if lobby:
+                break
 
+        if lobby:
+            if any(c.id == char.id for c in lobby.participants):
+                await interaction.response.send_message(f"**{char.name}** ya está en el lobby.", ephemeral=True)
+                return
+            if len(lobby.participants) >= MAX_PARTICIPANTES_EXPEDICION:
+                await interaction.response.send_message("Ese lobby ya está completo (4/4).", ephemeral=True)
+                return
+            lobby.participants.append(char)
+            await interaction.response.send_message(f"**{char.name}** se unió al lobby.", ephemeral=True)
+            await _publish_lobby(interaction, lobby)
+            return
 
-        # Caso 2: no hay lobby — buscar una expedición en curso con cupos de ayviar abiertos
+        # Caso C: no hay lobby — buscar una expedición en curso con cupos de ayviar
         expedition = await get_expedition_esperando_ayviar(interaction.channel_id)
-        
-        # Si estamos en un canal de texto (no hilo), buscar también en hilos hijos activos
-        if not expedition and hasattr(interaction.channel, 'threads'):
-            for thread in interaction.channel.threads:
-                expedition = await get_expedition_esperando_ayviar(thread.id)
-                if expedition:
-                    break
+        if not expedition and isinstance(interaction.channel, discord.Thread):
+            expedition = await get_expedition_esperando_ayviar(interaction.channel.parent_id)
         
         if not expedition:
-
             await interaction.response.send_message(
                 "No hay ningún lobby ni cupo de ayviar abierto en este canal ahora mismo.",
                 ephemeral=True,
@@ -454,6 +474,7 @@ def setup_expedition_commands(bot):
         await interaction.response.send_message(
             f"🐣 **{char.name}** respondió al llamado del ayviar y se unió a la expedición."
         )
+
 
     # ── /preparado_expedicion ────────────────────────────────────
     @bot.tree.command(name="preparado_expedicion", description="Marca que estás listo para empezar la expedición")
