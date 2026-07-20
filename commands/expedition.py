@@ -459,7 +459,25 @@ def setup_expedition_commands(bot):
 
         for char in lobby.participants:
             await add_participant(expedition["id"], char.id)
+        
+        # Cerrar el lobby con un mensaje épico en el embed original
+        if lobby.status_message:
+            try:
+                embed_despedida = discord.Embed(
+                    title=f"🗺️ Expedición a {lobby.zona_nombre}",
+                    description=(
+                        "¡Buena suerte aventureros, que dios Nermille os guíe en vuestra cruzada!\n\n"
+                        "El grupo ha partido al hilo de expedición."
+                    ),
+                    color=discord.Color.green(),
+                )
+                await lobby.status_message.edit(embed=embed_despedida, view=None)
+            except discord.NotFound:
+                pass
+        
         _quitar_lobby(interaction.channel_id, lobby)
+
+
 
         texto_pistas = (
             f" (arranca con {pistas_iniciales} pista(s) ya conocidas públicamente)"
