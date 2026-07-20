@@ -124,6 +124,7 @@ class ExpeditionLobby:
         )
         return embed
 
+# — — Buildz —————————————————
 async def _build_expedition_panel_embed(expedition, personajes, loot_rows):
     zona = get_zona(expedition["zona_id"])
     
@@ -148,6 +149,190 @@ async def _build_expedition_panel_embed(expedition, personajes, loot_rows):
     if zona.get("gif_id"):
         embed.set_thumbnail(url=get_gif_zona(expedition["zona_id"]))
     return embed
+
+class ElegirPersonajeSelect(discord.ui.Select):
+    def __init__(self, lobby, characters, owner_id, parent_view):
+        options = [
+            discord.SelectOption(
+                label=c.name,
+                value=c.name,
+                description=f"Nv.{c.level} | {c.elemento or 'Sin elemento'}"
+            )
+            for c in characters[:25]
+        ]
+        super().__init__(placeholder="Elegí tu personaje", options=options)
+        self.lobby = lobby
+        self.owner_id = owner_id
+        self.parent_view = parent_view
+
+    async def callback(self, interaction: discord.Interaction):
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("No es tu selección.", ephemeral=True)
+            return
+
+        char_name = self.values[0]
+        chars = await get_user_characters(self.owner_id, include_npc=False)
+        char = next((c for c in chars if c.name == char_name), None)
+        if not char:
+            await interaction.response.send_message("No se encontró el personaje.", ephemeral=True)
+            return
+
+        if self.lobby.has_owner(self.owner_id):
+            await interaction.response.send_message("Ya estás en este lobby.", ephemeral=True)
+            return
+        if len(self.lobby.participants) >= MAX_PARTICIPANTES_EXPEDICION:
+            await interaction.response.send_message("El lobby se llenó.", ephemeral=True)
+            return
+
+        self.lobby.participants.append(char)
+        await interaction.response.send_message(f"**{char.name}** se unió al lobby.", ephemeral=True)
+        await self.parent_view._refresh(interaction)
+
+
+class ElegirPersonajeView(discord.ui.View):
+    def __init__(self, lobby, characters, owner_id, parent_view):
+        super().__init__(timeout=60)
+        self.add_item(ElegirPersonajeSelect(lobby, characters, owner_id, parent_view))
+
+
+class ExpeditionLobbyView(discord.ui.View):
+    def __init__(self, channel_id, lobby):
+        super().__init__(timeout=LOBBY_EXPEDICION_TIMEOUT_SECONDS)
+        self.channel_id = channel_id
+        self.lobby = lobby
+
+    async def on_timeout(self):
+        _quitar_lobby(self.channel_id, self.lobby)
+        if self.lobby.status_message:
+            try:
+                await self.lobby.status_message.edit(
+                    content="⌛ Lobby de expedición cancelado por inactividad.",
+                    embed=None,
+                    view=None,
+                )
+            except discord.NotFound:
+                pass
+
+    async def _refresh(self, interaction: discord.Interaction):
+        if self.lobby.status_message:
+            try:
+                await self.lobby.status_message.edit(embed=self.lobby.build_embed(), view=self)
+            except discord.NotFound:
+                pass
+
+    @discord.ui.button(label="Unirse", style=discord.ButtonStyle.green, emoji="➕")
+    async def btn_unirse(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.lobby.has_owner(interaction.user.id):
+            await interaction.response.send_message("Ya estás en este lobby.", ephemeral=True)
+            return
+        if len(self.lobby.participants) >= MAX_PARTICIPANTES_EXPEDICION:
+            await interaction.response.send_message("El lobby está completo (4/4).", ephemeral=True)
+            return
+        if await usuario_ocupado(interaction.user.id):
+            await interaction.response.send_message("Ya estás en un combate o expedición activa.", ephemeral=True)
+            return
+
+        chars = await get_user_characters(interaction.user.id, include_npc=False)
+        if not chars:
+            await interaction.response.send_message("No tenés personajes creados.", ephemeral=True)
+            return
+
+        if len(chars) == 1:
+            self.lobby.participants.append(chars[0])
+            await interaction.response.send_message(f"**{chars[0].name}** se unió al lobby.", ephemeral=True)
+            await self._refresh(interaction)
+        else:
+            view = ElegirPersonajeView(self.lobby, chars, interaction.user.id, self)
+            await interaction.response.send_message("Elegí tu personaje:", view=view, ephemeral=True)
+
+    @discord.ui.button(label="Salirse", style=discord.ButtonStyle.red, emoji="➖")
+    async def btn_salirse(self, interaction: discord.Interaction, button: discord.ui.Button):
+        char = next((c for c in self.lobby.participants if c.owner_id == interaction.user.id), None)
+        if not char:
+            await interaction.response.send_message("No estás en este lobby.", ephemeral=True)
+            return
+
+        self.lobby.participants.remove(char)
+        self.lobby.ready_votes.discard(interaction.user.id)
+
+        if char.owner_id == self.lobby.lider_owner_id:
+            if not self.lobby.participants:
+                _quitar_lobby(self.channel_id, self.lobby)
+                await interaction.message.edit(
+                    content="⌛ Lobby cancelado: el líder se retiró.",
+                    embed=None,
+                    view=None,
+                )
+                return
+            else:
+                self.lobby.lider_owner_id = self.lobby.participants[0].owner_id
+
+        await interaction.response.send_message(f"**{char.name}** salió del lobby.", ephemeral=True)
+        await self._refresh(interaction)
+
+    @discord.ui.button(label="Listo", style=discord.ButtonStyle.primary, emoji="✅")
+    async def btn_listo(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not self.lobby.has_owner(interaction.user.id):
+            await interaction.response.send_message("No estás en este lobby.", ephemeral=True)
+            return
+
+        self.lobby.ready_votes.add(interaction.user.id)
+
+        if self.lobby.ready_votes < self.lobby.owner_ids():
+            await interaction.response.send_message(
+                f"Listo registrado ({len(self.lobby.ready_votes)}/{len(self.lobby.owner_ids())}).",
+                ephemeral=True,
+            )
+            await self._refresh(interaction)
+            return
+
+        await self._iniciar_expedicion(interaction)
+
+    async def _iniciar_expedicion(self, interaction: discord.Interaction):
+        activas_actuales = await get_active_expeditions_by_thread(self.channel_id)
+        if len(activas_actuales) >= MAX_SESIONES_POR_CANAL:
+            await interaction.response.send_message(
+                f"Ya hay {MAX_SESIONES_POR_CANAL} expediciones en curso en este canal. Esperá a que alguna termine.",
+                ephemeral=True,
+            )
+            return
+
+        pistas_iniciales = await get_pistas_publicas(self.lobby.zona_id)
+        zona = get_zona(self.lobby.zona_id)
+        thread_id = zona.get("thread_id", self.channel_id)
+
+        expedition = await create_expedition(
+            thread_id, self.lobby.zona_id, self.lobby.lider_owner_id, pistas_iniciales
+        )
+        for char in self.lobby.participants:
+            await add_participant(expedition["id"], char.id)
+        _quitar_lobby(self.channel_id, self.lobby)
+
+        # Transformar el mensaje del lobby en despedida épica
+        embed_despedida = discord.Embed(
+            title=f"🗺️ Expedición a {self.lobby.zona_nombre}",
+            description="¡Buena suerte aventureros, que dios Nermille os guíe en vuestra cruzada!\n\nEl grupo ha partido al hilo de expedición.",
+            color=discord.Color.green(),
+        )
+        await interaction.response.edit_message(embed=embed_despedida, view=None)
+
+        # Enviar panel y notificación al hilo
+        hilo = _bot_ref.get_channel(thread_id) if _bot_ref else None
+        if hilo:
+            await _actualizar_panel_expedicion(expedition, hilo)
+            await hilo.send(
+                f"🗺️ La expedición a **{self.lobby.zona_nombre}** ha comenzado.\n"
+                f"Participantes: {', '.join(c.name for c in self.lobby.participants)}"
+                f"{f' (arranca con {pistas_iniciales} pista(s) ya conocidas)' if pistas_iniciales > 0 else ''}"
+            )
+            await interaction.followup.send(
+                f"🗺️ La expedición comenzó en {hilo.mention}."
+            )
+        else:
+            await interaction.followup.send(
+                f"🗺️ ¡Expedición en marcha!: {self.lobby.zona_nombre}"
+            )
+
 
 #– Helpers —————————————
 
@@ -377,89 +562,32 @@ def setup_expedition_commands(bot):
         lobby.participants.append(char)
         _agregar_lobby(interaction.channel_id, lobby)
 
-        await interaction.response.send_message(embed=lobby.build_embed())
+        view = ExpeditionLobbyView(interaction.channel_id, lobby)
+        await interaction.response.send_message(embed=lobby.build_embed(), view=view)
         lobby.status_message = await interaction.original_response()
 
     # ── /unirse_expedicion ───────────────────────────────────────
-    @bot.tree.command(name="unirse_expedicion", description="Suma tu personaje al lobby, o entra vía ayviar si hay cupo")
-    @app_commands.describe(
-        personaje="Tu personaje que se suma",
-        zona="Zona del lobby al que querés unirte (si hay varios activos)",
-    )
-    @app_commands.autocomplete(personaje=personaje_propio_autocomplete, zona=lobby_zona_autocomplete)
-    async def unirse_expedicion(interaction: discord.Interaction, personaje: str, zona: str = None):
+    @bot.tree.command(name="unirse_expedicion", description="Entra a una expedición en curso vía ayviar (si hay cupos abiertos)")
+    @app_commands.describe(personaje="Tu personaje que se suma")
+    @app_commands.autocomplete(personaje=personaje_propio_autocomplete)
+    async def unirse_expedicion(interaction: discord.Interaction, personaje: str):
         if await usuario_ocupado(interaction.user.id):
-            await interaction.response.send_message(
-                "Ya estás en un combate o expedición activa.", ephemeral=True
-            )
+            await interaction.response.send_message("Ya estás en un combate o expedición activa.", ephemeral=True)
             return
 
         char = await get_character(interaction.user.id, personaje)
         if not char:
-            await interaction.response.send_message(
-                f"No tenés un personaje llamado **{personaje}**.", ephemeral=True
-            )
+            await interaction.response.send_message(f"No tenés un personaje llamado **{personaje}**.", ephemeral=True)
             return
 
-        # Buscar lobby en: canal actual, canal padre (si estamos en hilo), o hilos hijos (si estamos en canal)
-        canales_a_buscar = [interaction.channel_id]
-        
-        # Si estamos en un hilo, también buscar en el canal padre
-        if isinstance(interaction.channel, discord.Thread):
-            canales_a_buscar.append(interaction.channel.parent_id)
-        
-        # Si estamos en un canal de texto, buscar también en sus hilos activos
-        elif hasattr(interaction.channel, 'threads'):
-            for thread in interaction.channel.threads:
-                canales_a_buscar.append(thread.id)
-
-        # Eliminar duplicados
-        canales_a_buscar = list(dict.fromkeys(canales_a_buscar))
-
-        lobby = None
-        for ch_id in canales_a_buscar:
-            # Caso A: el usuario ya tiene un lobby propio en este canal
-            l = _lobby_de_owner(ch_id, interaction.user.id)
-            if l:
-                lobby = l
-                break
-            
-            # Caso B: buscar un lobby con cupo (si especificó zona, filtrar)
-            candidatos = LOBBIES_EXPEDICION.get(ch_id, [])
-            if zona:
-                for candidato in candidatos:
-                    if candidato.zona_id == zona and len(candidato.participants) < MAX_PARTICIPANTES_EXPEDICION:
-                        lobby = candidato
-                        break
-            else:
-                for candidato in candidatos:
-                    if len(candidato.participants) < MAX_PARTICIPANTES_EXPEDICION:
-                        lobby = candidato
-                        break
-            
-            if lobby:
-                break
-
-        if lobby:
-            if any(c.id == char.id for c in lobby.participants):
-                await interaction.response.send_message(f"**{char.name}** ya está en el lobby.", ephemeral=True)
-                return
-            if len(lobby.participants) >= MAX_PARTICIPANTES_EXPEDICION:
-                await interaction.response.send_message("Ese lobby ya está completo (4/4).", ephemeral=True)
-                return
-            lobby.participants.append(char)
-            await interaction.response.send_message(f"**{char.name}** se unió al lobby.", ephemeral=True)
-            await _publish_lobby(interaction, lobby)
-            return
-
-        # Caso C: no hay lobby — buscar una expedición en curso con cupos de ayviar
+        # Buscar expedición con ayviar abierto en canal/hilo actual
         expedition = await get_expedition_esperando_ayviar(interaction.channel_id)
         if not expedition and isinstance(interaction.channel, discord.Thread):
             expedition = await get_expedition_esperando_ayviar(interaction.channel.parent_id)
-        
+
         if not expedition:
             await interaction.response.send_message(
-                "No hay ningún lobby ni cupo de ayviar abierto en este canal ahora mismo.",
+                "No hay ninguna expedición con cupo de ayviar abierto en este canal.",
                 ephemeral=True,
             )
             return
@@ -474,6 +602,7 @@ def setup_expedition_commands(bot):
         await interaction.response.send_message(
             f"🐣 **{char.name}** respondió al llamado del ayviar y se unió a la expedición."
         )
+
 
 
     # ── /preparado_expedicion ────────────────────────────────────
