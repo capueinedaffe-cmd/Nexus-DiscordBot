@@ -149,6 +149,7 @@ async def _build_expedition_panel_embed(expedition, personajes, loot_rows):
         embed.set_thumbnail(url=get_gif_zona(expedition["zona_id"]))
     return embed
 
+#– Helpers —————————————
 
 async def _actualizar_panel_expedicion(expedition, thread):
     participant_ids = await get_participant_ids(expedition["id"])
@@ -167,6 +168,19 @@ async def _actualizar_panel_expedicion(expedition, thread):
     msg = await thread.send(embed=embed)
     EXPEDITION_PANELS[expedition["id"]] = msg
 
+async def lobby_zona_autocomplete(interaction: discord.Interaction, current: str):
+    lobbies = LOBBIES_EXPEDICION.get(interaction.channel_id, [])
+    choices = []
+    seen = set()
+    for lobby in lobbies:
+        if lobby.zona_id in seen:
+            continue
+        seen.add(lobby.zona_id)
+        zona = get_zona(lobby.zona_id)
+        nombre = zona["nombre"] if zona else lobby.zona_id
+        if current.lower() in nombre.lower():
+            choices.append(app_commands.Choice(name=nombre, value=lobby.zona_id))
+    return choices[:25]
 
 async def personaje_propio_autocomplete(interaction: discord.Interaction, current: str):
     chars = await get_user_characters(interaction.user.id, include_npc=False)
@@ -368,9 +382,13 @@ def setup_expedition_commands(bot):
 
     # ── /unirse_expedicion ───────────────────────────────────────
     @bot.tree.command(name="unirse_expedicion", description="Suma tu personaje al lobby, o entra vía ayviar si hay cupo")
-    @app_commands.describe(personaje="Tu personaje que se suma")
-    @app_commands.autocomplete(personaje=personaje_propio_autocomplete)
-    async def unirse_expedicion(interaction: discord.Interaction, personaje: str):
+    @app_commands.describe(
+        personaje="Tu personaje que se suma",
+        zona="Zona del lobby al que querés unirte (si hay varios activos)",
+    )
+    @app_commands.autocomplete(personaje=personaje_propio_autocomplete, zona=lobby_zona_autocomplete)
+    async def unirse_expedicion(interaction: discord.Interaction, personaje: str, zona: str = None):
+
         if await usuario_ocupado(interaction.user.id):
             await interaction.response.send_message(
                 "Ya estás en un combate o expedición activa.", ephemeral=True
@@ -387,26 +405,39 @@ def setup_expedition_commands(bot):
         # Caso 1: hay un lobby tuyo o con lugar en este canal
         lobby = _lobby_de_owner(interaction.channel_id, interaction.user.id)
         if not lobby:
-            for candidato in LOBBIES_EXPEDICION.get(interaction.channel_id, []):
-                if len(candidato.participants) < MAX_PARTICIPANTES_EXPEDICION:
-                    lobby = candidato
-                    break
+            candidatos = LOBBIES_EXPEDICION.get(interaction.channel_id, [])
+            
+            if zona:
+                # El jugador especificó zona: buscar exactamente ese lobby
+                for candidato in candidatos:
+                    if candidato.zona_id == zona and len(candidato.participants) < MAX_PARTICIPANTES_EXPEDICION:
+                        lobby = candidato
+                        break
+                if not lobby:
+                    await interaction.response.send_message(
+                        f"No hay ningún lobby activo para **{zona}** con cupos disponibles.", ephemeral=True
+                    )
+                    return
+            else:
+                # Sin zona especificada: primer lobby con cupo (comportamiento anterior)
+                for candidato in candidatos:
+                    if len(candidato.participants) < MAX_PARTICIPANTES_EXPEDICION:
+                        lobby = candidato
+                        break
 
-        if lobby:
-            if any(c.id == char.id for c in lobby.participants):
-                await interaction.response.send_message(f"**{char.name}** ya está en el lobby.", ephemeral=True)
-                return
-            if len(lobby.participants) >= MAX_PARTICIPANTES_EXPEDICION:
-                await interaction.response.send_message("Ese lobby ya está completo (4/4).", ephemeral=True)
-                return
-            lobby.participants.append(char)
-            await interaction.response.send_message(f"**{char.name}** se unió al lobby.", ephemeral=True)
-            await _publish_lobby(interaction, lobby)
-            return
 
         # Caso 2: no hay lobby — buscar una expedición en curso con cupos de ayviar abiertos
         expedition = await get_expedition_esperando_ayviar(interaction.channel_id)
+        
+        # Si estamos en un canal de texto (no hilo), buscar también en hilos hijos activos
+        if not expedition and hasattr(interaction.channel, 'threads'):
+            for thread in interaction.channel.threads:
+                expedition = await get_expedition_esperando_ayviar(thread.id)
+                if expedition:
+                    break
+        
         if not expedition:
+
             await interaction.response.send_message(
                 "No hay ningún lobby ni cupo de ayviar abierto en este canal ahora mismo.",
                 ephemeral=True,
