@@ -124,7 +124,7 @@ class ExpeditionLobby:
         )
         return embed
 
-# — — Buildz —————————————————
+# ——— Builds —————————————————
 async def _build_expedition_panel_embed(expedition, personajes, loot_rows):
     zona = get_zona(expedition["zona_id"])
     
@@ -242,7 +242,7 @@ class ExpeditionLobbyView(discord.ui.View):
             await interaction.response.send_message(f"**{chars[0].name}** se unió al lobby.", ephemeral=True)
             await self._refresh(interaction)
         else:
-            view = ElegirPersonajeView(self.lobby, chars, interaction.user.id, self)
+            view = Elegi PersonajeView(self.lobby, chars, interaction.user.id, self)
             await interaction.response.send_message("Elegí tu personaje:", view=view, ephemeral=True)
 
     @discord.ui.button(label="Salirse", style=discord.ButtonStyle.red, emoji="➖")
@@ -255,20 +255,29 @@ class ExpeditionLobbyView(discord.ui.View):
         self.lobby.participants.remove(char)
         self.lobby.ready_votes.discard(interaction.user.id)
 
+        # Si quedó vacío: cancelar lobby, borrar embed y botones
+        if not self.lobby.participants:
+            _quitar_lobby(self.channel_id, self.lobby)
+            await interaction.response.edit_message(
+                content="⌛ Lobby cancelado: todos los participantes se retiraron.",
+                embed=None,
+                view=None,
+            )
+            return
+
+        # Si se fue el líder, transferir liderazgo al siguiente
         if char.owner_id == self.lobby.lider_owner_id:
-            if not self.lobby.participants:
-                _quitar_lobby(self.channel_id, self.lobby)
-                await interaction.message.edit(
-                    content="⌛ Lobby cancelado: el líder se retiró.",
-                    embed=None,
-                    view=None,
-                )
-                return
-            else:
-                self.lobby.lider_owner_id = self.lobby.participants[0].owner_id
+            self.lobby.lider_owner_id = self.lobby.participants[0].owner_id
+            await interaction.response.send_message(
+                f"**{char.name}** salió del lobby. El liderazgo pasó a **{self.lobby.participants[0].name}**.",
+                ephemeral=True,
+            )
+            await self._refresh(interaction)
+            return
 
         await interaction.response.send_message(f"**{char.name}** salió del lobby.", ephemeral=True)
         await self._refresh(interaction)
+
 
     @discord.ui.button(label="Listo", style=discord.ButtonStyle.primary, emoji="✅")
     async def btn_listo(self, interaction: discord.Interaction, button: discord.ui.Button):
