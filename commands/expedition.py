@@ -242,7 +242,7 @@ class ExpeditionLobbyView(discord.ui.View):
             await interaction.response.send_message(f"**{chars[0].name}** se unió al lobby.", ephemeral=True)
             await self._refresh(interaction)
         else:
-            view = Elegi PersonajeView(self.lobby, chars, interaction.user.id, self)
+            view = ElegirPersonajeView(self.lobby, chars, interaction.user.id, self)
             await interaction.response.send_message("Elegí tu personaje:", view=view, ephemeral=True)
 
     @discord.ui.button(label="Salirse", style=discord.ButtonStyle.red, emoji="➖")
